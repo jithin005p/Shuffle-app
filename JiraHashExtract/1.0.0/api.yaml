@@ -21,6 +21,13 @@ authentication:
 actions:
   - name: get_hash
     description: Get hash of process from JIRA description for the specified ID
+    parameters:
+      - name: json_data
+        description: The JSON to handle
+        required: true
+        multiline: true
+        schema:
+          type: string
     returns:
       schema:
         type: string
