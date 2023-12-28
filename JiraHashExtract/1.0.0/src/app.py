@@ -19,13 +19,11 @@ class JiraHashExtract(AppBase):
         """
         super().__init__(redis, logger, console_logger)
 
-    def get_hash(self, username, password, json_data):
+    def get_hash(self, username, password, issue_id):
         jira = JIRA(
         server="https://authentix.atlassian.net",
         basic_auth=(username,password)
         )
-        json_data = json.loads(json_data)
-        return json_data
         issue = jira.issue(issue_id)
         flag = 0
         id = ''

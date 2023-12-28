@@ -22,7 +22,7 @@ actions:
   - name: get_hash
     description: Get hash of process from JIRA description for the specified ID
     parameters:
-      - name: json_data
+      - name: issue_id
         description: The JSON to handle
         example: "This is a string to be encoded"
         required: true
