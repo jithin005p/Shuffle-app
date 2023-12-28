@@ -24,6 +24,7 @@ actions:
     parameters:
       - name: json_data
         description: The JSON to handle
+        example: "This is a string to be encoded"
         required: true
         multiline: true
         schema:
