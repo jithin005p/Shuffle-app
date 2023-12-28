@@ -4,9 +4,9 @@ from jira import JIRA
 from walkoff_app_sdk.app_base import AppBase
 
 
-class JiraHashExtract(AppBase):
+class JiraAnomal(AppBase):
     __version__ = "1.0.0"
-    app_name = "JiraHashExtract"  # this needs to match "name" in api.yaml
+    app_name = "JiraAnomal"  # this needs to match "name" in api.yaml
 
     def __init__(self, redis, logger, console_logger=None):
         """
@@ -36,6 +36,19 @@ class JiraHashExtract(AppBase):
             return id
         else:
             return None
+        
+    def append_desc(self, username, password, issue_id, desc):
+        jira = JIRA(
+        server="https://authentix.atlassian.net",
+        basic_auth=(username,password)
+        )
+        issue = jira.issue(issue_id)
+
+        # Append additional details to the current description
+        new_description = issue.fields.description + desc
+
+        # Update the issue
+        issue.update(fields={"description": new_description})
 
 
 if __name__ == "__main__":

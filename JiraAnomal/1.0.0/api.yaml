@@ -1,6 +1,6 @@
 app_version: 1.0.0
-name: JiraHashExtract
-description: Get hash of process from JIRA description
+name: JiraAnomal
+description: JIRA related actions for Anomal
 contact_info:
   name: Jithin
 authentication:
@@ -24,11 +24,28 @@ actions:
     parameters:
       - name: issue_id
         description: The JSON to handle
-        example: "This is a string to be encoded"
+        example: "This "
         required: true
-        multiline: true
+        multiline: false
         schema:
           type: string
     returns:
       schema:
         type: string
+  - name: append_desc
+    description: Append the enrichment details to issue id description 
+    parameters:
+      - name: issue_id
+        description: The JSON to handle
+        example: "This"
+        required: true
+        multiline: false
+        schema:
+          type: string
+      - name: desc
+        description: The JSON to handle
+        example: "This"
+        required: true
+        multiline: true
+        schema:
+          type: string
