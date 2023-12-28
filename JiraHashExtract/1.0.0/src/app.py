@@ -1,6 +1,4 @@
 import re
-import requests
-import json
 from jira import JIRA
 
 from walkoff_app_sdk.app_base import AppBase
