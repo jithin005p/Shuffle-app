@@ -45,7 +45,7 @@ class JiraAnomal(AppBase):
         issue = jira.issue(issue_id)
 
         # Append additional details to the current description
-        new_description = issue.fields.description + desc
+        new_description = issue.fields.description + "\n" + str(desc)
 
         # Update the issue
         issue.update(fields={"description": new_description})
