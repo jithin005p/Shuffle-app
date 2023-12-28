@@ -52,4 +52,4 @@ class JiraAnomal(AppBase):
 
 
 if __name__ == "__main__":
-    JiraHashExtract.run()
+    JiraAnomal.run()
