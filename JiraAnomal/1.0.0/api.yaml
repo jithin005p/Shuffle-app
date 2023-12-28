@@ -24,7 +24,7 @@ actions:
     parameters:
       - name: issue_id
         description: The JSON to handle
-        example: "This "
+        example: "This"
         required: true
         multiline: false
         schema:
