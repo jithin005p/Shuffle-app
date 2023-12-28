@@ -37,15 +37,24 @@ class JiraAnomal(AppBase):
         else:
             return None
         
-    def append_desc(self, username, password, issue_id, desc):
+    def append_desc_vt(self, username, password, issue_id, desc):
         jira = JIRA(
         server="https://authentix.atlassian.net",
         basic_auth=(username,password)
         )
         issue = jira.issue(issue_id)
+        vt_data = desc
+        jira_description = ""
+        jira_description += f"*VT result for {vt_data['body']['sha256']}*\n"
+        jira_description += f"*Positives:* {vt_data['body']['positives']}\n"
+        if vt_data['body']['positives'] != 0:
+            jira_description += f"*Vendor Scan Positives:*\n"
+            for key in vt_data['body']['scans']:
+                if vt_data['body']['scans'][key]['detected'] == True:
+                    jira_description += f"*{key} {vt_data['body']['scans'][key]['result']}*\n"
 
         # Append additional details to the current description
-        new_description = issue.fields.description + "\n" + str(desc)
+        new_description = issue.fields.description + "\n" + jira_description
 
         # Update the issue
         issue.update(fields={"description": new_description})
