@@ -1,5 +1,6 @@
 import re
 import requests
+import json
 from jira import JIRA
 
 from walkoff_app_sdk.app_base import AppBase
@@ -18,11 +19,13 @@ class JiraHashExtract(AppBase):
         """
         super().__init__(redis, logger, console_logger)
 
-    def get_hash(self, username, password, issue_id):
+    def get_hash(self, username, password, json_data):
         jira = JIRA(
         server="https://authentix.atlassian.net",
         basic_auth=(username,password)
         )
+        json_data = json.loads(json_data)
+        return json_data
         issue = jira.issue(issue_id)
         flag = 0
         id = ''

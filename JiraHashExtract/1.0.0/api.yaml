@@ -18,12 +18,6 @@ authentication:
       required: true
       schema:
         type: string
-    - name: issue_id
-      description: Issue ID of the issue in JIRA
-      example: "*****"
-      required: true
-      schema:
-        type: string
 actions:
   - name: get_hash
     description: Get hash of process from JIRA description for the specified ID
