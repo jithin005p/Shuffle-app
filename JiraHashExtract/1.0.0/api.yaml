@@ -1,0 +1,32 @@
+app_version: 1.0.0
+name: JiraHashExtract
+description: Get hash of process from JIRA description
+contact_info:
+  name: Jithin
+authentication:
+  required: true
+  parameters:
+    - name: username
+      description: Username of the JIRA user
+      example: ""
+      required: true
+      schema:
+        type: string
+    - name: password
+      description: Password for JIRA or token
+      example: "*****"
+      required: true
+      schema:
+        type: string
+    - name: issue_id
+      description: Issue ID of the issue in JIRA
+      example: "*****"
+      required: true
+      schema:
+        type: string
+actions:
+  - name: get_hash
+    description: Get hash of process from JIRA description for the specified ID
+    returns:
+      schema:
+        type: string
