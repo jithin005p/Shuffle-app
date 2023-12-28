@@ -32,8 +32,8 @@ actions:
     returns:
       schema:
         type: string
-  - name: append_desc
-    description: Append the enrichment details to issue id description 
+  - name: append_desc_vt
+    description: Append the enrichment details from VT to issue id description 
     parameters:
       - name: issue_id
         description: The JSON to handle
