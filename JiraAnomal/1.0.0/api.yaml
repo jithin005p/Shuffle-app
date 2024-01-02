@@ -18,6 +18,41 @@ authentication:
       required: true
       schema:
         type: string
+    - name: api_key_elastic
+        description: API key to elastic
+        example: "This"
+        required: true
+        multiline: false
+        schema:
+          type: string
+      - name: api_key_abuse
+        description: API key to AbuseIP DB
+        example: "This"
+        required: true
+        multiline: false
+        schema:
+          type: string
+      - name: api_key_grey
+        description: API key to GreyNoise
+        example: "This"
+        required: true
+        multiline: false
+        schema:
+          type: string
+      - name: api_key_jira
+        description: API key to JIRA
+        example: "This"
+        required: true
+        multiline: false
+        schema:
+          type: string
+      - name: username_jira
+        description: username to JIRA
+        example: "This"
+        required: true
+        multiline: false
+        schema:
+          type: string
 actions:
   - name: get_hash
     description: Get hash of process from JIRA description for the specified ID
@@ -47,5 +82,15 @@ actions:
         example: "This"
         required: true
         multiline: true
+        schema:
+          type: string
+  - name: bruteforce
+    description: Takes care of all the bruteforce case for the number of days mentioned
+    parameters:
+      - name: days
+        description: The JSON to handle
+        example: "This"
+        required: true
+        multiline: false
         schema:
           type: string
