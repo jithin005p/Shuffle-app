@@ -19,12 +19,12 @@ authentication:
       schema:
         type: string
     - name: api_key_elastic
-        description: API key to elastic
-        example: "This"
-        required: true
-        multiline: false
-        schema:
-          type: string
+      description: API key to elastic
+      example: "This"
+      required: true
+      multiline: false
+      schema:
+        type: string
     - name: api_key_abuse
       description: API key to AbuseIP DB
       example: "This"
