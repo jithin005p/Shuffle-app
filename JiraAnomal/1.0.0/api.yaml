@@ -94,3 +94,16 @@ actions:
         multiline: false
         schema:
           type: string
+  - name: get_elastic_id
+    description: Get Elastic ID from JIRA description for the specified ID
+    parameters:
+      - name: issue_id
+        description: The JSON to handle
+        example: "This"
+        required: true
+        multiline: false
+        schema:
+          type: string
+    returns:
+      schema:
+        type: list

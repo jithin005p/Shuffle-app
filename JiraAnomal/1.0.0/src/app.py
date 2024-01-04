@@ -424,6 +424,26 @@ class JiraAnomal(AppBase):
                 break
             page += 1
 
+    def get_elastic_id(self, username, password, issue_id):
+        jira = JIRA(
+        server="https://authentix.atlassian.net",
+        basic_auth=(username,password)
+        )
+        issue = jira.issue(issue_id)
+        flag = 0
+        id = ''
+        for line in issue.fields.description.split("\n"):
+            # Replace the regex with your specific hash pattern
+            matches = re.findall(r'\* *Elastic Alert ID\*: ([\w\d]+)', line)
+            if matches:
+                flag = 1
+                id = matches
+                break
+        if flag == 1:
+            return id
+        else:
+            return None
+
 
 if __name__ == "__main__":
     JiraAnomal.run()
