@@ -106,4 +106,4 @@ actions:
           type: string
     returns:
       schema:
-        type: list
+        type: string

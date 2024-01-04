@@ -437,8 +437,15 @@ class JiraAnomal(AppBase):
             matches = re.findall(r'\* *Elastic Alert ID\*: ([\w\d]+)', line)
             if matches:
                 flag = 1
-                id = matches
-                break
+                for a in matches:
+                    id += a + ','
+
+                # Find the last occurrence of the comma
+                last_comma_index = id.rfind(',')
+
+                # Remove the last comma using slicing if it exists
+                if last_comma_index != -1:
+                    id = id[:last_comma_index] + id[last_comma_index+1:]
         if flag == 1:
             return id
         else:
