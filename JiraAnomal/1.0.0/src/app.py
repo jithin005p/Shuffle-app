@@ -555,8 +555,8 @@ class JiraAnomal(AppBase):
                                 jira_description += f"Domain: {domain} \n"
                             if 'user' in key:
                                 #print(hit['_source'][key]['name'])
-                                username = hit['_source'][key]['name']
-                                jira_description += f"User.name: {username} \n"
+                                user = hit['_source'][key]['name']
+                                jira_description += f"User.name: {user} \n"
                             if 'winlog' in key:
                                 #print(hit['_source'][key]['event_data']) 
                                 subjectUsersId = hit['_source'][key]['event_data']['SubjectUserSid']
@@ -576,8 +576,8 @@ class JiraAnomal(AppBase):
                                 jira_description += f"winlog.logon.failure.reason: {failureReason} \n"
 
             else:
-                return "Error in fetching the alert"
-            return jira_description
+                jira_description += f"Error in fetching alert {id} \n"
+        return jira_description
 
 
 if __name__ == "__main__":
