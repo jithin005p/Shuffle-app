@@ -20,14 +20,14 @@ authentication:
         type: string
     - name: api_key_elastic
       description: API key to elastic
-      example: "This"
+      example: "****"
       required: true
       multiline: false
       schema:
         type: string
     - name: api_key_abuse
       description: API key to AbuseIP DB
-      example: "This"
+      example: "******"
       required: true
       multiline: false
       schema:
@@ -39,14 +39,7 @@ authentication:
       multiline: false
       schema:
         type: string
-    - name: api_key_jira
-      description: API key to JIRA
-      example: "This"
-      required: true
-      multiline: false
-      schema:
-        type: string
-    - name: username_jira
+    - name: elastic_url
       description: username to JIRA
       example: "This"
       required: true
@@ -99,6 +92,19 @@ actions:
     parameters:
       - name: issue_id
         description: The JSON to handle
+        example: "This"
+        required: true
+        multiline: false
+        schema:
+          type: string
+    returns:
+      schema:
+        type: string
+  - name: multiple_logon_failure
+    description: Get the details for the multiple logon failure alert
+    parameters:
+      - name: id_list
+        description: The string with all alert ID
         example: "This"
         required: true
         multiline: false

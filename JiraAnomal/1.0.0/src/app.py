@@ -202,9 +202,9 @@ class JiraAnomal(AppBase):
         # Update the issue
         issue.update(fields={"description": new_description})
 
-    def bruteforce(self, api_key_elastic, api_key_abuse, api_key_grey, api_key_jira, username_jira, days):
+    def bruteforce(self, api_key_elastic, api_key_abuse, api_key_grey, password, username, elastic_url, days):
         # Configuration
-        ELASTICSEARCH_URL = "https://rychiger-siem.es.eu-central-1.aws.cloud.es.io"
+        ELASTICSEARCH_URL = elastic_url
         INDEX_NAME = ".internal.alerts-security.alerts-default*"  # Replace with your actual index pattern for security alerts
         API_KEY = api_key_elastic
         API_KEY_ABUSE = api_key_abuse
@@ -223,7 +223,7 @@ class JiraAnomal(AppBase):
         number_of_days = int(days)
         number_of_hours = 5
 
-        alert_id_dict = get_alert_id_key(number_of_days, api_key_jira, username_jira)
+        alert_id_dict = get_alert_id_key(number_of_days, password, username)
 
         # Define a date range for the alerts needs to be checked
         end_date = datetime.utcnow()
@@ -412,7 +412,7 @@ class JiraAnomal(AppBase):
                         usecase = "Successful Guess of Password Check"
                         jira_description += self.parse_logs(ELASTICSEARCH_URL, INDEX_NAME, SIZE, HEADERS, query_failed, usecase, API_KEY_ABUSE, API_KEY_GREY)  
                         try:
-                            write_to_jira_key(alert_id_dict[alert_id], jira_description, api_key_jira, username_jira)          
+                            write_to_jira_key(alert_id_dict[alert_id], jira_description, password, username)          
                         except:
                             print("Exception") 
                     except:
@@ -450,6 +450,134 @@ class JiraAnomal(AppBase):
             return id
         else:
             return None
+
+    def multiple_logon_failure(self, api_key_elastic, elastic_url, id_list):
+        ELASTICSEARCH_URL = elastic_url
+        API_KEY = api_key_elastic
+
+        number_of_days = 10
+        # Define a date range for the alerts needs to be checked
+        end_date = datetime.utcnow()
+        start_date = end_date - timedelta(days=number_of_days)
+
+        HEADERS = {
+                    "Authorization": f"ApiKey {API_KEY}",
+                    "Content-Type": "application/json"
+                }
+
+        INDEX_NAME = ".alerts-security.alerts-default"
+        a = id_list.split(',')
+        for b in a:
+            id = b
+
+            query = {
+                "size": 10,
+                "from": 0,
+                "query": {
+                "bool": {
+                    "filter": [
+                    {
+                        "bool": {
+                        "must": [],
+                        "filter": [
+                            {
+                            "bool": {
+                                "should": [
+                                {
+                                    "match_phrase": {
+                                    "_id": id
+                                    }
+                                }
+                                ],
+                                "minimum_should_match": 1
+                            }
+                            },
+                            {
+                            "bool": {
+                                "should": [
+                                {
+                                    "match_phrase": {
+                                    "kibana.alert.workflow_status": "acknowledged"
+                                    }
+                                },
+                                {
+                                    "match_phrase": {
+                                    "kibana.alert.workflow_status": "open"
+                                    }
+                                },
+                                {
+                                    "match_phrase": {
+                                    "kibana.alert.workflow_status": "closed"
+                                    }
+                                }
+                                ],
+                                "minimum_should_match": 1
+                            }
+                            },
+                            {
+                            "range": {
+                                "@timestamp": {
+                                "gte": start_date.isoformat(),
+                                "lt": end_date.isoformat()
+                                }
+                            }
+                            }
+                        ],
+                        "should": [],
+                        "must_not": []
+                        }
+                    },
+                    {
+                        "term": {
+                        "kibana.space_ids": "default"
+                        }
+                    }
+                    ]
+                }
+                }
+            }
+            jira_description = f""
+            response = requests.post(f"{ELASTICSEARCH_URL}/{INDEX_NAME}/_search",headers=HEADERS,json=query)
+            if response.status_code == 200:
+                hits = response.json()["hits"]["hits"]
+                if hits:    
+                    for hit in hits:
+                        for key in hit['_source']:
+                            if 'host' in key:
+                                #print(hit['_source'][key]['hostname'])
+                                hostname = hit['_source'][key]['hostname']
+                                jira_description = f"Hostname: {hostname} \n"
+                            if 'source' in key:
+                                #print(hit['_source'][key]['ip'])
+                                ip = hit['_source'][key]['ip']
+                                domain = hit['_source'][key]['domain']
+                                jira_description += f"Source IP: {ip} \n"
+                                jira_description += f"Domain: {domain} \n"
+                            if 'user' in key:
+                                #print(hit['_source'][key]['name'])
+                                username = hit['_source'][key]['name']
+                                jira_description += f"User.name: {username} \n"
+                            if 'winlog' in key:
+                                #print(hit['_source'][key]['event_data']) 
+                                subjectUsersId = hit['_source'][key]['event_data']['SubjectUserSid']
+                                logonType = hit['_source'][key]['event_data']['LogonType']
+                                Status = hit['_source'][key]['event_data']['Status']
+                                SubStatus = hit['_source'][key]['event_data']['SubStatus']
+                                TargetDomainName = hit['_source'][key]['event_data']['TargetDomainName']
+                                LogonProcessName = hit['_source'][key]['event_data']['LogonProcessName']
+                                AuthenticationPackageName = hit['_source'][key]['event_data']['AuthenticationPackageName']
+                                failureReason = hit['_source'][key]['logon']['failure']['reason']
+                                jira_description += f"winlog.event_data.SubjectUserSid: {subjectUsersId} \n"
+                                jira_description += f"winlog.event_data.LogonType: {logonType} \n"
+                                jira_description += f"winlog.event_data.Status: {Status} \n"
+                                jira_description += f"winlog.event_data.SubStatus: {SubStatus} \n"
+                                jira_description += f"winlog.event_data.LogonProcessName: {LogonProcessName} \n"
+                                jira_description += f"winlog.event_data.AuthenticationPackageName: {AuthenticationPackageName} \n"
+                                jira_description += f"winlog.logon.failure.reason: {failureReason} \n"
+
+            else:
+                return "Error in fetching the alert"
+            return jira_description
 
 
 if __name__ == "__main__":
