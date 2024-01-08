@@ -438,6 +438,7 @@ class JiraAnomal(AppBase):
             if matches:
                 flag = 1
                 id = matches[0]
+                break
                 #for a in matches:
                 #    id += a + ','
         # Find the last occurrence of the comma
@@ -545,9 +546,8 @@ class JiraAnomal(AppBase):
                 for hit in hits:
                     for key in hit['_source']:
                         if 'host' in key:
-                            #print(hit['_source'][key]['hostname'])
                             hostname = hit['_source'][key]['hostname']
-                            jira_description = f"Hostname: {hostname} \n"
+                            jira_description += f"Hostname: {hostname} \n"
                         if 'source' in key:
                             #print(hit['_source'][key]['ip'])
                             ip = hit['_source'][key]['ip']
@@ -556,22 +556,32 @@ class JiraAnomal(AppBase):
                             jira_description += f"Domain: {domain} \n"
                         if 'user' in key:
                             #print(hit['_source'][key]['name'])
-                            user = hit['_source'][key]['name']
+                            if 'name' in hit['_source'][key].keys():
+                                user = hit['_source'][key]['name']
+                            else:
+                                user = ''
                             jira_description += f"User.name: {user} \n"
                         if 'winlog' in key:
-                            #print(hit['_source'][key]['event_data']) 
                             subjectUsersId = hit['_source'][key]['event_data']['SubjectUserSid']
                             logonType = hit['_source'][key]['event_data']['LogonType']
-                            Status = hit['_source'][key]['event_data']['Status']
-                            SubStatus = hit['_source'][key]['event_data']['SubStatus']
+                            if 'Status' in hit['_source'][key]['event_data'].keys():
+                                Status = hit['_source'][key]['event_data']['Status']
+                                SubStatus = hit['_source'][key]['event_data']['SubStatus']
+                            else:
+                                Status = ''
+                                SubStatus = ''
                             TargetDomainName = hit['_source'][key]['event_data']['TargetDomainName']
                             LogonProcessName = hit['_source'][key]['event_data']['LogonProcessName']
                             AuthenticationPackageName = hit['_source'][key]['event_data']['AuthenticationPackageName']
-                            failureReason = hit['_source'][key]['logon']['failure']['reason']
+                            if 'failure' in hit['_source'][key]['logon'].keys():
+                                failureReason = hit['_source'][key]['logon']['failure']['reason']
+                            else:
+                                failureReason = ''
                             jira_description += f"winlog.event_data.SubjectUserSid: {subjectUsersId} \n"
                             jira_description += f"winlog.event_data.LogonType: {logonType} \n"
                             jira_description += f"winlog.event_data.Status: {Status} \n"
                             jira_description += f"winlog.event_data.SubStatus: {SubStatus} \n"
+                            jira_description += f"winlog.event_data.TargetDomainName: {TargetDomainName} \n"
                             jira_description += f"winlog.event_data.LogonProcessName: {LogonProcessName} \n"
                             jira_description += f"winlog.event_data.AuthenticationPackageName: {AuthenticationPackageName} \n"
                             jira_description += f"winlog.logon.failure.reason: {failureReason} \n"
