@@ -439,7 +439,7 @@ class JiraAnomal(AppBase):
                 flag = 1
                 for a in matches:
                     id += a + ','
-        id = matches[0]
+            id = matches[0]
         # Find the last occurrence of the comma
         #last_comma_index = id.rfind(',')
 
