@@ -586,6 +586,20 @@ class JiraAnomal(AppBase):
         else:
             jira_description += f"Error in fetching alert {id} \n"
         return jira_description
+    
+    def append_desc(self, username, password, issue_id, desc):
+        jira = JIRA(
+        server="https://authentix.atlassian.net",
+        basic_auth=(username,password)
+        )
+        issue = jira.issue(issue_id)
+        vt_data = desc
+
+        # Append additional details to the current description
+        new_description = issue.fields.description + "\n" + vt_data
+
+        # Update the issue
+        issue.update(fields={"description": new_description})
 
 
 if __name__ == "__main__":
