@@ -77,7 +77,6 @@ class JiraAnomal(AppBase):
             b[ip_address] = "Error: Unable to reach AbuseIPDB"
             return b
 
-
     def check_greynoise_ip_reputation(self, ip_address, api_key):
         GREYNOISE_URL = "https://api.greynoise.io/v3/community/" + ip_address
 
@@ -103,7 +102,6 @@ class JiraAnomal(AppBase):
             i[ip_address] = "IP record doesnt exist in Grey Noise DB"
             return i
         
-
     def parse_logs(self, ELASTICSEARCH_URL, INDEX_NAME, SIZE, HEADERS, query_user, usecase, API_KEY_ABUSE, API_KEY_GREY):
         jira_description = f""
         page_act = 0
@@ -158,7 +156,6 @@ class JiraAnomal(AppBase):
         for ip in source_ip_list:
             jira_description += f"--- {ip_rep_grey[ip]} \n"
         return jira_description
-
 
     def get_hash(self, username, password, issue_id):
         jira = JIRA(
