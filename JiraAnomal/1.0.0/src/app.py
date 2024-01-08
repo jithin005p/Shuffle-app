@@ -544,7 +544,7 @@ class JiraAnomal(AppBase):
                     for key in hit['_source']:
                         if 'host' in key:
                             hostname = hit['_source'][key]['hostname']
-                            jira_description += f"Hostname: {hostname} \n"
+                            jira_description += f"`Hostname: {hostname} \n`"
                         if 'source' in key:
                             #print(hit['_source'][key]['ip'])
                             ip = hit['_source'][key]['ip']
