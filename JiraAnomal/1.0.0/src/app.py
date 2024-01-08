@@ -467,117 +467,117 @@ class JiraAnomal(AppBase):
                 }
 
         INDEX_NAME = ".alerts-security.alerts-default"
-        a = id_list.split(',')
-        for b in a:
-            id = b
+        #a = id_list.split(',')
+        #for b in a:
+        id = id_list
 
-            query = {
-                "size": 10,
-                "from": 0,
-                "query": {
-                "bool": {
+        query = {
+            "size": 10,
+            "from": 0,
+            "query": {
+            "bool": {
+                "filter": [
+                {
+                    "bool": {
+                    "must": [],
                     "filter": [
-                    {
+                        {
                         "bool": {
-                        "must": [],
-                        "filter": [
+                            "should": [
                             {
-                            "bool": {
-                                "should": [
-                                {
-                                    "match_phrase": {
-                                    "_id": id
-                                    }
+                                "match_phrase": {
+                                "_id": id
                                 }
-                                ],
-                                "minimum_should_match": 1
                             }
+                            ],
+                            "minimum_should_match": 1
+                        }
+                        },
+                        {
+                        "bool": {
+                            "should": [
+                            {
+                                "match_phrase": {
+                                "kibana.alert.workflow_status": "acknowledged"
+                                }
                             },
                             {
-                            "bool": {
-                                "should": [
-                                {
-                                    "match_phrase": {
-                                    "kibana.alert.workflow_status": "acknowledged"
-                                    }
-                                },
-                                {
-                                    "match_phrase": {
-                                    "kibana.alert.workflow_status": "open"
-                                    }
-                                },
-                                {
-                                    "match_phrase": {
-                                    "kibana.alert.workflow_status": "closed"
-                                    }
+                                "match_phrase": {
+                                "kibana.alert.workflow_status": "open"
                                 }
-                                ],
-                                "minimum_should_match": 1
-                            }
                             },
                             {
-                            "range": {
-                                "@timestamp": {
-                                "gte": start_date.isoformat(),
-                                "lt": end_date.isoformat()
+                                "match_phrase": {
+                                "kibana.alert.workflow_status": "closed"
                                 }
                             }
+                            ],
+                            "minimum_should_match": 1
+                        }
+                        },
+                        {
+                        "range": {
+                            "@timestamp": {
+                            "gte": start_date.isoformat(),
+                            "lt": end_date.isoformat()
                             }
-                        ],
-                        "should": [],
-                        "must_not": []
                         }
-                    },
-                    {
-                        "term": {
-                        "kibana.space_ids": "default"
                         }
+                    ],
+                    "should": [],
+                    "must_not": []
                     }
-                    ]
+                },
+                {
+                    "term": {
+                    "kibana.space_ids": "default"
+                    }
                 }
-                }
+                ]
             }
-            jira_description = f""
-            response = requests.post(f"{ELASTICSEARCH_URL}/{INDEX_NAME}/_search",headers=HEADERS,json=query)
-            if response.status_code == 200:
-                hits = response.json()["hits"]["hits"]
-                if hits:    
-                    for hit in hits:
-                        for key in hit['_source']:
-                            if 'host' in key:
-                                #print(hit['_source'][key]['hostname'])
-                                hostname = hit['_source'][key]['hostname']
-                                jira_description = f"Hostname: {hostname} \n"
-                            if 'source' in key:
-                                #print(hit['_source'][key]['ip'])
-                                ip = hit['_source'][key]['ip']
-                                domain = hit['_source'][key]['domain']
-                                jira_description += f"Source IP: {ip} \n"
-                                jira_description += f"Domain: {domain} \n"
-                            if 'user' in key:
-                                #print(hit['_source'][key]['name'])
-                                user = hit['_source'][key]['name']
-                                jira_description += f"User.name: {user} \n"
-                            if 'winlog' in key:
-                                #print(hit['_source'][key]['event_data']) 
-                                subjectUsersId = hit['_source'][key]['event_data']['SubjectUserSid']
-                                logonType = hit['_source'][key]['event_data']['LogonType']
-                                Status = hit['_source'][key]['event_data']['Status']
-                                SubStatus = hit['_source'][key]['event_data']['SubStatus']
-                                TargetDomainName = hit['_source'][key]['event_data']['TargetDomainName']
-                                LogonProcessName = hit['_source'][key]['event_data']['LogonProcessName']
-                                AuthenticationPackageName = hit['_source'][key]['event_data']['AuthenticationPackageName']
-                                failureReason = hit['_source'][key]['logon']['failure']['reason']
-                                jira_description += f"winlog.event_data.SubjectUserSid: {subjectUsersId} \n"
-                                jira_description += f"winlog.event_data.LogonType: {logonType} \n"
-                                jira_description += f"winlog.event_data.Status: {Status} \n"
-                                jira_description += f"winlog.event_data.SubStatus: {SubStatus} \n"
-                                jira_description += f"winlog.event_data.LogonProcessName: {LogonProcessName} \n"
-                                jira_description += f"winlog.event_data.AuthenticationPackageName: {AuthenticationPackageName} \n"
-                                jira_description += f"winlog.logon.failure.reason: {failureReason} \n"
+            }
+        }
+        jira_description = f""
+        response = requests.post(f"{ELASTICSEARCH_URL}/{INDEX_NAME}/_search",headers=HEADERS,json=query)
+        if response.status_code == 200:
+            hits = response.json()["hits"]["hits"]
+            if hits:    
+                for hit in hits:
+                    for key in hit['_source']:
+                        if 'host' in key:
+                            #print(hit['_source'][key]['hostname'])
+                            hostname = hit['_source'][key]['hostname']
+                            jira_description = f"Hostname: {hostname} \n"
+                        if 'source' in key:
+                            #print(hit['_source'][key]['ip'])
+                            ip = hit['_source'][key]['ip']
+                            domain = hit['_source'][key]['domain']
+                            jira_description += f"Source IP: {ip} \n"
+                            jira_description += f"Domain: {domain} \n"
+                        if 'user' in key:
+                            #print(hit['_source'][key]['name'])
+                            user = hit['_source'][key]['name']
+                            jira_description += f"User.name: {user} \n"
+                        if 'winlog' in key:
+                            #print(hit['_source'][key]['event_data']) 
+                            subjectUsersId = hit['_source'][key]['event_data']['SubjectUserSid']
+                            logonType = hit['_source'][key]['event_data']['LogonType']
+                            Status = hit['_source'][key]['event_data']['Status']
+                            SubStatus = hit['_source'][key]['event_data']['SubStatus']
+                            TargetDomainName = hit['_source'][key]['event_data']['TargetDomainName']
+                            LogonProcessName = hit['_source'][key]['event_data']['LogonProcessName']
+                            AuthenticationPackageName = hit['_source'][key]['event_data']['AuthenticationPackageName']
+                            failureReason = hit['_source'][key]['logon']['failure']['reason']
+                            jira_description += f"winlog.event_data.SubjectUserSid: {subjectUsersId} \n"
+                            jira_description += f"winlog.event_data.LogonType: {logonType} \n"
+                            jira_description += f"winlog.event_data.Status: {Status} \n"
+                            jira_description += f"winlog.event_data.SubStatus: {SubStatus} \n"
+                            jira_description += f"winlog.event_data.LogonProcessName: {LogonProcessName} \n"
+                            jira_description += f"winlog.event_data.AuthenticationPackageName: {AuthenticationPackageName} \n"
+                            jira_description += f"winlog.logon.failure.reason: {failureReason} \n"
 
-            else:
-                jira_description += f"Error in fetching alert {id} \n"
+        else:
+            jira_description += f"Error in fetching alert {id} \n"
         return jira_description
 
 
