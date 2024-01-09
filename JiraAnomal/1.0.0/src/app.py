@@ -750,7 +750,7 @@ class JiraAnomal(AppBase):
                 hits = response.json()["hits"]["hits"]
                 for a in hits:
                     username_i = a['_source']['user']['name']
-                    if username_i in user_failure_reason.keys():
+                    if username_i not in user_failure_reason.keys():
                         user_failure_reason[username_i] = []
                         other_action[username_i] = []
                     if "UserLoggedIn" in a['_source']['event']['action']:
@@ -765,7 +765,7 @@ class JiraAnomal(AppBase):
                             user_failed_login.append(username_i)
                         if b not in user_failure_reason[username_i]:
                             user_failure_reason[username_i].append(b)
-                        print(user_failure_reason[username_i])
+                        #print(user_failure_reason[username_i])
                     else:
                         #print(a['_source']['event']['action'])
                         b = a['_source']['event']['action']
