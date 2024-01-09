@@ -130,3 +130,16 @@ actions:
         multiline: true
         schema:
           type: string
+  - name: password_spraying
+    description: Get the details for password spraying alerts
+    parameters:
+      - name: id_list
+        description: The string with all alert ID
+        example: "This"
+        required: true
+        multiline: false
+        schema:
+          type: string
+    returns:
+      schema:
+        type: string

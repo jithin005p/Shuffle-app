@@ -544,20 +544,20 @@ class JiraAnomal(AppBase):
                     for key in hit['_source']:
                         if 'host' in key:
                             hostname = hit['_source'][key]['hostname']
-                            jira_description += f"`Hostname: {hostname}` \n"
+                            jira_description += f"*Hostname:* {hostname} \n"
                         if 'source' in key:
                             #print(hit['_source'][key]['ip'])
                             ip = hit['_source'][key]['ip']
                             domain = hit['_source'][key]['domain']
-                            jira_description += f"Source IP: {ip} \n"
-                            jira_description += f"Domain: {domain} \n"
+                            jira_description += f"*Source IP:* {ip} \n"
+                            jira_description += f"*Domain:* {domain} \n"
                         if 'user' in key:
                             #print(hit['_source'][key]['name'])
                             if 'name' in hit['_source'][key].keys():
                                 user = hit['_source'][key]['name']
                             else:
                                 user = ''
-                            jira_description += f"User.name: {user} \n"
+                            jira_description += f"*User.name:* {user} \n"
                         if 'winlog' in key:
                             subjectUsersId = hit['_source'][key]['event_data']['SubjectUserSid']
                             logonType = hit['_source'][key]['event_data']['LogonType']
@@ -574,14 +574,14 @@ class JiraAnomal(AppBase):
                                 failureReason = hit['_source'][key]['logon']['failure']['reason']
                             else:
                                 failureReason = ''
-                            jira_description += f"winlog.event_data.SubjectUserSid: {subjectUsersId} \n"
-                            jira_description += f"winlog.event_data.LogonType: {logonType} \n"
-                            jira_description += f"winlog.event_data.Status: {Status} \n"
-                            jira_description += f"winlog.event_data.SubStatus: {SubStatus} \n"
-                            jira_description += f"winlog.event_data.TargetDomainName: {TargetDomainName} \n"
-                            jira_description += f"winlog.event_data.LogonProcessName: {LogonProcessName} \n"
-                            jira_description += f"winlog.event_data.AuthenticationPackageName: {AuthenticationPackageName} \n"
-                            jira_description += f"winlog.logon.failure.reason: {failureReason} \n"
+                            jira_description += f"*winlog.event_data.SubjectUserSid:* {subjectUsersId} \n"
+                            jira_description += f"*winlog.event_data.LogonType:* {logonType} \n"
+                            jira_description += f"*winlog.event_data.Status:* {Status} \n"
+                            jira_description += f"*winlog.event_data.SubStatus:* {SubStatus} \n"
+                            jira_description += f"*winlog.event_data.TargetDomainName:* {TargetDomainName} \n"
+                            jira_description += f"*winlog.event_data.LogonProcessName:* {LogonProcessName} \n"
+                            jira_description += f"*winlog.event_data.AuthenticationPackageName:* {AuthenticationPackageName} \n"
+                            jira_description += f"*winlog.logon.failure.reason:* {failureReason} \n"
 
         else:
             jira_description += f"Error in fetching alert {id} \n"
@@ -600,6 +600,195 @@ class JiraAnomal(AppBase):
 
         # Update the issue
         issue.update(fields={"description": new_description})
+
+    def password_spraying(self, api_key_elastic, elastic_url, id_list):
+        ELASTICSEARCH_URL = elastic_url
+        API_KEY = api_key_elastic
+
+        number_of_days = 10
+        # Define a date range for the alerts needs to be checked
+        end_date = datetime.utcnow()
+        start_date = end_date - timedelta(days=number_of_days)
+
+        HEADERS = {
+                    "Authorization": f"ApiKey {API_KEY}",
+                    "Content-Type": "application/json"
+                }
+
+        INDEX_NAME = ".internal.alerts-security.alerts-default*"
+        id = id_list
+
+        query = {
+            "size": 10,
+            "from": 0,
+            "query": {
+            "bool": {
+                "filter": [
+                {
+                    "bool": {
+                    "must": [],
+                    "filter": [
+                        {
+                        "bool": {
+                            "should": [
+                            {
+                                "match_phrase": {
+                                "_id": id
+                                }
+                            }
+                            ],
+                            "minimum_should_match": 1
+                        }
+                        },
+                        {
+                        "bool": {
+                            "should": [
+                            {
+                                "match_phrase": {
+                                "kibana.alert.workflow_status": "acknowledged"
+                                }
+                            },
+                            {
+                                "match_phrase": {
+                                "kibana.alert.workflow_status": "open"
+                                }
+                            },
+                            {
+                                "match_phrase": {
+                                "kibana.alert.workflow_status": "closed"
+                                }
+                            }
+                            ],
+                            "minimum_should_match": 1
+                        }
+                        },
+                        {
+                        "range": {
+                            "@timestamp": {
+                            "gte": start_date.isoformat(),
+                            "lt": end_date.isoformat()
+                            }
+                        }
+                        }
+                    ],
+                    "should": [],
+                    "must_not": []
+                    }
+                },
+                {
+                    "term": {
+                    "kibana.space_ids": "default"
+                    }
+                }
+                ]
+            }
+            }
+        }
+        jira_description = f""
+        source_ip = ''
+        spray_start = ''
+        response = requests.post(f"{ELASTICSEARCH_URL}/{INDEX_NAME}/_search",headers=HEADERS,json=query)
+        if response.status_code == 200:
+            hits = response.json()["hits"]["hits"]
+            if hits:
+                #print(hits[0]['_source']['source.ip'])    
+                #print(hits[0]['_source']['kibana.alert.threshold_result']['from'])   
+                source_ip = hits[0]['_source']['source.ip']
+                spray_start = hits[0]['_source']['kibana.alert.threshold_result']['from']       
+        else:
+            print("Error Fetching the issue")
+        jira_description += f"*Source.ip:* {source_ip} \n"
+        jira_description += f"*Start Time:* {spray_start} \n"
+
+        s_start = datetime.fromisoformat(spray_start.rstrip("Z"))
+        spray_start = (s_start - timedelta(days=30)).isoformat()
+
+        spray_end = datetime.utcnow().isoformat()
+
+        spary_inv_query = {
+            "query": {
+            "bool": {
+            "must": [],
+            "filter": [
+                {
+                "bool": {
+                    "should": [
+                    {
+                        "match_phrase": {
+                        "source.ip": source_ip
+                        }
+                    }
+                    ],
+                    "minimum_should_match": 1
+                }
+                },
+                {
+                "range": {
+                    "@timestamp": {
+                    "gte": spray_start,
+                    "lte": spray_end
+                    }
+                }
+                }
+            ],
+            "should": [],
+            "must_not": []
+            }
+        }
+        }
+        SIZE = 100
+        page = 0
+        INDEX_NAME = ".ds-logs-o365.audit-default*"
+        user_logged_in = []
+        user_failed_login = []
+        user_failure_reason = {}
+        other_action = {}
+        while True:
+            from_parameter = page * SIZE
+            response = requests.post(f"{ELASTICSEARCH_URL}/{INDEX_NAME}/_search?from={from_parameter}&size={SIZE}",headers=HEADERS,json=spary_inv_query)
+            if response.status_code == 200:
+                hits = response.json()["hits"]["hits"]
+                for a in hits:
+                    username_i = a['_source']['user']['name']
+                    user_failure_reason[username_i] = []
+                    if "UserLoggedIn" in a['_source']['event']['action']:
+                        #print(a['_source']['event']['action'])
+                        if username_i not in user_logged_in:
+                            user_logged_in.append(username_i)
+                    elif "UserLoginFailed" in a['_source']['event']['action']:
+                        #print(a['_source']['o365']['audit']['LogonError'])
+                        b = a['_source']['o365']['audit']['LogonError']
+                        #print(b)
+                        if username_i not in user_failed_login:
+                            user_failed_login.append(username_i)
+                        if b not in user_failure_reason[username_i]:
+                            user_failure_reason[username_i].append(b)
+                        print(user_failure_reason[username_i])
+                    else:
+                        #print(a['_source']['event']['action'])
+                        b = a['_source']['event']['action']
+                        if b not in other_action[username_i]:
+                            other_action[username_i].append(a['_source']['event']['action'])
+                if len(hits) < SIZE: #Last page of alert is parsed
+                    break
+                page += 1
+        jira_description += f"*Users with successful login:* \n"
+        if len(user_logged_in) == 0:
+            jira_description += f"-- No successful login \n"
+        for ul in user_logged_in:
+            jira_description += f"-- {ul} \n"
+        jira_description += f"*Users with failed login:* \n"
+        if len(user_failed_login) == 0:
+            jira_description += f"-- No failed login \n"
+        for uf in user_failed_login:
+            jira_description += f"-- {uf} \n"
+        jira_description += f"*Users logon failure reason:* \n"
+        for fr in user_failure_reason:
+            jira_description += f"-- {fr}: {user_failure_reason[fr]} \n"
+        jira_description += f"*Users with other action with same source IP:* \n"
+        for oa in other_action:
+            jira_description += f"-- {oa}: {other_action[oa]} \n"
+        return jira_description
 
 
 if __name__ == "__main__":
