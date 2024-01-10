@@ -697,8 +697,8 @@ class JiraAnomal(AppBase):
                 spray_start = hits[0]['_source']['kibana.alert.threshold_result']['from']       
         else:
             print("Error Fetching the issue")
-        jira_description += f"*Source.ip:* {source_ip} \n"
-        jira_description += f"*Start Time:* {spray_start} \n"
+        jira_description += f"- *Source.ip:* {source_ip} \n"
+        jira_description += f"- *Start Time:* {spray_start} \n"
 
         s_start = datetime.fromisoformat(spray_start.rstrip("Z"))
         spray_start = (s_start - timedelta(days=30)).isoformat()
@@ -774,22 +774,22 @@ class JiraAnomal(AppBase):
                 if len(hits) < SIZE: #Last page of alert is parsed
                     break
                 page += 1
-        jira_description += f"*Users with successful login:* \n"
+        jira_description += f"- *Users with successful login:* \n"
         if len(user_logged_in) == 0:
-            jira_description += f"- No successful login \n"
+            jira_description += f"-- No successful login \n"
         for ul in user_logged_in:
-            jira_description += f"- {ul} \n"
-        jira_description += f"*Users with failed login:* \n"
+            jira_description += f"-- {ul} \n"
+        jira_description += f"- *Users with failed login:* \n"
         if len(user_failed_login) == 0:
-            jira_description += f"- No failed login \n"
+            jira_description += f"-- No failed login \n"
         for uf in user_failed_login:
-            jira_description += f"- {uf} \n"
-        jira_description += f"*Users logon failure reason:* \n"
+            jira_description += f"-- {uf} \n"
+        jira_description += f"- *Users logon failure reason:* \n"
         for fr in user_failure_reason:
-            jira_description += f"- {fr}: {user_failure_reason[fr]} \n"
-        jira_description += f"*Users with other action with same source IP:* \n"
+            jira_description += f"-- {fr}: {user_failure_reason[fr]} \n"
+        jira_description += f"- *Users with other action with same source IP:* \n"
         for oa in other_action:
-            jira_description += f"- {oa}: {other_action[oa]} \n"
+            jira_description += f"-- {oa}: {other_action[oa]} \n"
         return jira_description
 
 
