@@ -749,28 +749,29 @@ class JiraAnomal(AppBase):
             if response.status_code == 200:
                 hits = response.json()["hits"]["hits"]
                 for a in hits:
-                    username_i = a['_source']['user']['name']
-                    if username_i not in user_failure_reason.keys():
-                        user_failure_reason[username_i] = []
-                        other_action[username_i] = []
-                    if "UserLoggedIn" in a['_source']['event']['action']:
-                        #print(a['_source']['event']['action'])
-                        if username_i not in user_logged_in:
-                            user_logged_in.append(username_i)
-                    elif "UserLoginFailed" in a['_source']['event']['action']:
-                        #print(a['_source']['o365']['audit']['LogonError'])
-                        b = a['_source']['o365']['audit']['LogonError']
-                        #print(b)
-                        if username_i not in user_failed_login:
-                            user_failed_login.append(username_i)
-                        if b not in user_failure_reason[username_i]:
-                            user_failure_reason[username_i].append(b)
-                        #print(user_failure_reason[username_i])
-                    else:
-                        #print(a['_source']['event']['action'])
-                        b = a['_source']['event']['action']
-                        if b not in other_action[username_i]:
-                            other_action[username_i].append(a['_source']['event']['action'])
+                    if 'name' in a['_source']['user'].keys():
+                        username_i = a['_source']['user']['name']
+                        if username_i not in user_failure_reason.keys():
+                            user_failure_reason[username_i] = []
+                            other_action[username_i] = []
+                        if "UserLoggedIn" in a['_source']['event']['action']:
+                            #print(a['_source']['event']['action'])
+                            if username_i not in user_logged_in:
+                                user_logged_in.append(username_i)
+                        elif "UserLoginFailed" in a['_source']['event']['action']:
+                            #print(a['_source']['o365']['audit']['LogonError'])
+                            b = a['_source']['o365']['audit']['LogonError']
+                            #print(b)
+                            if username_i not in user_failed_login:
+                                user_failed_login.append(username_i)
+                            if b not in user_failure_reason[username_i]:
+                                user_failure_reason[username_i].append(b)
+                            #print(user_failure_reason[username_i])
+                        else:
+                            #print(a['_source']['event']['action'])
+                            b = a['_source']['event']['action']
+                            if b not in other_action[username_i]:
+                                other_action[username_i].append(a['_source']['event']['action'])
                 if len(hits) < SIZE: #Last page of alert is parsed
                     break
                 page += 1
@@ -792,6 +793,14 @@ class JiraAnomal(AppBase):
             jira_description += f"-- {oa}: {other_action[oa]} \n"
         return jira_description
 
-
+    def vt_ip(self, api_key_vt, ip):
+        url = f'https://www.virustotal.com/vtapi/v2/ip-address/report?apikey={api_key}&ip={ip_address}'
+        response = requests.get(url)
+        if response.status_code == 200:
+            result = response.json()
+            print(result)  
+        else:
+            print("Error:", response.status_code)
+        
 if __name__ == "__main__":
     JiraAnomal.run()
