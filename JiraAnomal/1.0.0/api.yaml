@@ -146,3 +146,8 @@ actions:
     returns:
       schema:
         type: string
+  - name: get_brute_jira
+    description: Get the key of latest brute force attack ticket 
+    returns:
+      schema:
+        type: string

@@ -823,5 +823,22 @@ class JiraAnomal(AppBase):
         else:
             print("Error:", response.status_code)
         
+    def get_brute_jira(self, username, password):
+        # Jira connection details
+        jira_url = 'https://authentix.atlassian.net'
+        jira_username = username
+        jira_password = password  # Consider using API token instead of password
+
+        # Connect to JIRA
+        jira = JIRA(jira_url, basic_auth=(jira_username, jira_password))
+
+        # JQL Query
+        word_to_search = "Brute Force"  # Replace with the word you're searching for
+        jql_query = f'summary ~ "{word_to_search}" AND status in ("OPEN", "DETECT & ANALYZE")'
+
+        # Search issues
+        issues = jira.search_issues(jql_query)
+        return (issues[0])
+    
 if __name__ == "__main__":
     JiraAnomal.run()
