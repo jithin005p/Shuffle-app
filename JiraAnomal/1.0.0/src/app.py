@@ -368,7 +368,7 @@ class JiraAnomal(AppBase):
                 #This is the index that contain the logs for bruteforce attack to a Microsoft 365 User
                 INDEX_NAME = ".ds-logs-o365.audit-default*"
                 usecase = "Successful Login Check"
-                jira_description += self.parse_logs(self, ELASTICSEARCH_URL, INDEX_NAME, SIZE, HEADERS, query_user, usecase, API_KEY_ABUSE, API_KEY_GREY)
+                jira_description += self.parse_logs(ELASTICSEARCH_URL, INDEX_NAME, SIZE, HEADERS, query_user, usecase, API_KEY_ABUSE, API_KEY_GREY)
                 ###Usecase 2 Password Guessed Correctly###################
                 query_failed = {
                     "query": {
@@ -434,7 +434,7 @@ class JiraAnomal(AppBase):
                     }
                 }
                 usecase = "Successful Guess of Password Check"
-                jira_description += self.parse_logs(self, ELASTICSEARCH_URL, INDEX_NAME, SIZE, HEADERS, query_failed, usecase, API_KEY_ABUSE, API_KEY_GREY)  
+                jira_description += self.parse_logs(ELASTICSEARCH_URL, INDEX_NAME, SIZE, HEADERS, query_failed, usecase, API_KEY_ABUSE, API_KEY_GREY)  
                 
         else:
             print(f"Error: {response.status_code}")
