@@ -78,15 +78,18 @@ actions:
         schema:
           type: string
   - name: bruteforce
-    description: Takes care of all the bruteforce case for the number of days mentioned
+    description: Takes care of the bruteforce case for the mentioned id
     parameters:
-      - name: days
-        description: The JSON to handle
+      - name: id_elastic
+        description: id nmentioned in the Jira ticket
         example: "This"
         required: true
         multiline: false
         schema:
           type: string
+    returns:
+      schema:
+        type: string
   - name: get_elastic_id
     description: Get Elastic ID from JIRA description for the specified ID
     parameters:
