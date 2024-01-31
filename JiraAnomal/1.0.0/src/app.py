@@ -722,9 +722,9 @@ class JiraAnomal(AppBase):
         jira_description += f"- *Start Time:* {spray_start} \n"
 
         s_start = datetime.fromisoformat(spray_start.rstrip("Z"))
-        spray_start = (s_start - timedelta(hours=3)).isoformat()
+        spray_start = (s_start - timedelta(hours=1)).isoformat()
 
-        spray_end = (s_start + timedelta(hours=3)).isoformat()
+        spray_end = (s_start + timedelta(hours=1)).isoformat()
 
         spary_inv_query = {
             "query": {
@@ -764,6 +764,7 @@ class JiraAnomal(AppBase):
         user_failed_login = []
         user_failure_reason = {}
         other_action = {}
+        user_fail_count = {}
         while True:
             from_parameter = page * SIZE
             response = requests.post(f"{ELASTICSEARCH_URL}/{INDEX_NAME}/_search?from={from_parameter}&size={SIZE}",headers=HEADERS,json=spary_inv_query)
@@ -785,8 +786,10 @@ class JiraAnomal(AppBase):
                             #print(b)
                             if username_i not in user_failed_login:
                                 user_failed_login.append(username_i)
+                                user_fail_count[username_i] = 0
                             if b not in user_failure_reason[username_i]:
                                 user_failure_reason[username_i].append(b)
+                            user_fail_count[username_i] += 1
                             #print(user_failure_reason[username_i])
                         else:
                             #print(a['_source']['event']['action'])
@@ -805,7 +808,7 @@ class JiraAnomal(AppBase):
         if len(user_failed_login) == 0:
             jira_description += f"-- No failed login \n"
         for uf in user_failed_login:
-            jira_description += f"-- {uf} \n"
+            jira_description += f"-- {uf} {user_fail_count[uf]} times\n"
         jira_description += f"- *Users logon failure reason:* \n"
         for fr in user_failure_reason:
             jira_description += f"-- {fr}: {user_failure_reason[fr]} \n"
