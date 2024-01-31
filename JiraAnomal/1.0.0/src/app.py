@@ -622,7 +622,7 @@ class JiraAnomal(AppBase):
         # Update the issue
         issue.update(fields={"description": new_description})
 
-    def password_spraying(self, api_key_elastic, elastic_url, id_list):
+    def password_spraying(self, api_key_elastic, api_key_abuse, elastic_url, id_list):
         ELASTICSEARCH_URL = elastic_url
         API_KEY = api_key_elastic
 
@@ -815,6 +815,8 @@ class JiraAnomal(AppBase):
         jira_description += f"- *Users with other action with same source IP:* \n"
         for oa in other_action:
             jira_description += f"-- {oa}: {other_action[oa]} \n"
+        jira_description += f"- *Source IP reputation (abuse.ch):* \n"
+        jira_description += f"-- {self.check_ip_abuse(source_ip, api_key_abuse)}"
         return jira_description
 
     def vt_ip(self, api_key_vt, ip):
