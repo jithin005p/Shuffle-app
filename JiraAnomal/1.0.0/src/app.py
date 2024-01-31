@@ -722,9 +722,9 @@ class JiraAnomal(AppBase):
         jira_description += f"- *Start Time:* {spray_start} \n"
 
         s_start = datetime.fromisoformat(spray_start.rstrip("Z"))
-        spray_start = (s_start - timedelta(hours=5)).isoformat()
+        spray_start = (s_start - timedelta(hours=3)).isoformat()
 
-        spray_end = datetime.utcnow().isoformat()
+        spray_end = (s_start + timedelta(hours=3)).isoformat()
 
         spary_inv_query = {
             "query": {
