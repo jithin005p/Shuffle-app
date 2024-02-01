@@ -603,7 +603,89 @@ class JiraAnomal(AppBase):
                             jira_description += f"*winlog.event_data.LogonProcessName:* {LogonProcessName} \n"
                             jira_description += f"*winlog.event_data.AuthenticationPackageName:* {AuthenticationPackageName} \n"
                             jira_description += f"*winlog.logon.failure.reason:* {failureReason} \n"
-
+            INDEX_NAME = ".ds-logs-system.security-default*"
+            s_start = datetime.fromisoformat(start_time.rstrip("Z"))
+            logon_start = (s_start - timedelta(hours=1)).isoformat()
+            logon_end = (s_start + timedelta(hours=1)).isoformat()
+            if ("2FA" not in domain):
+                query =  {
+                    "query":{
+                    "bool": {
+                    "must": [],
+                    "filter": [
+                        {
+                        "bool": {
+                            "filter": [
+                            {
+                                "bool": {
+                                "should": [
+                                    {
+                                    "match_phrase": {
+                                        "source.ip": ip
+                                    }
+                                    }
+                                ],
+                                "minimum_should_match": 1
+                                }
+                            },
+                            {
+                                "bool": {
+                                "should": [
+                                    {
+                                    "term": {
+                                        "host.name": {
+                                        "value": hostname
+                                        }
+                                    }
+                                    }
+                                ],
+                                "minimum_should_match": 1
+                                }
+                            }
+                            ]
+                        }
+                        },
+                        {
+                        "range": {
+                            "@timestamp": {
+                            "format": "strict_date_optional_time",
+                            "gte": logon_start,
+                            "lte": logon_end
+                            }
+                        }
+                        },
+                        {
+                        "match_phrase": {
+                            "user.name": user
+                        }
+                        }
+                    ],
+                    "should": [],
+                    "must_not": []
+                    }
+                }
+                }
+            SIZE = 100
+            page = 0
+            event_action = []
+            while True:
+                from_parameter = page * SIZE
+                response = requests.post(f"{ELASTICSEARCH_URL}/{INDEX_NAME}/_search?from={from_parameter}&size={SIZE}",headers=HEADERS,json=query)
+                #print(response.json())
+                if response.status_code == 200:
+                    #print(response.json())
+                    hits = response.json()["hits"]["hits"]
+                    for a in hits:
+                        print(a['_source']['event']['action'])
+                        action = a['_source']['event']['action']
+                        if action not in event_action:
+                            event_action.append(action)
+                    if len(hits) < SIZE: #Last page of alert is parsed
+                        break
+                    page += 1
+            jira_description += f"*Actions done by the user {user} from the source ip {ip} on hostname {hostname}:* \n"
+            for action in event_action:
+                jira_description += f"- {action} \n"
         else:
             jira_description += f"Error in fetching alert {id} \n"
         return jira_description
