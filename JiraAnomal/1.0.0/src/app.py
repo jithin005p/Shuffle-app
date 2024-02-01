@@ -557,6 +557,11 @@ class JiraAnomal(AppBase):
             }
         }
         jira_description = f""
+        start_time = ""
+        domain = ""
+        hostname = ""
+        user = ""
+        ip = ""
         response = requests.post(f"{ELASTICSEARCH_URL}/{INDEX_NAME}/_search",headers=HEADERS,json=query)
         if response.status_code == 200:
             hits = response.json()["hits"]["hits"]
