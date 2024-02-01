@@ -568,6 +568,9 @@ class JiraAnomal(AppBase):
             if hits:    
                 for hit in hits:
                     for key in hit['_source']:
+                        if 'start' in key:
+                            start_time = hit['_source'][key]
+                            jira_description += f"*Start Time:* {start_time} \n"
                         if 'host' in key:
                             hostname = hit['_source'][key]['hostname']
                             jira_description += f"*Hostname:* {hostname} \n"
