@@ -901,7 +901,8 @@ class JiraAnomal(AppBase):
             jira_description += f"-- {uf} {user_fail_count[uf]} times\n"
         jira_description += f"- *Users logon failure reason:* \n"
         for fr in user_failure_reason:
-            jira_description += f"-- {fr}: {user_failure_reason[fr]} \n"
+            if len(user_failure_reason[fr]) > 0:
+                jira_description += f"-- {fr}: {user_failure_reason[fr]} \n"
         jira_description += f"- *Users with other action with same source IP:* \n"
         for oa in other_action:
             jira_description += f"-- {oa}: {other_action[oa]} \n"
