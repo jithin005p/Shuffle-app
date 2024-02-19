@@ -2,6 +2,8 @@ import re
 from jira import JIRA
 import requests
 from datetime import datetime, timedelta, timezone
+from cbc_sdk import CBCloudAPI
+from cbc_sdk.platform import Device
 
 from walkoff_app_sdk.app_base import AppBase
 
@@ -936,5 +938,198 @@ class JiraAnomal(AppBase):
         issues = jira.search_issues(jql_query)
         return (issues[0])
     
+    def printspooler(self,username, password, api_key_elastic, api_key_vt, elastic_url, cb_api_id, cb_api_key, cb_api_org, issue_id):
+         # Configuration
+        ELASTICSEARCH_URL = "https://rychiger-siem.es.eu-central-1.aws.cloud.es.io"
+        INDEX_NAME = ".alerts-security.alerts-default*"  # Replace with your actual index pattern for security alerts
+        API_KEY = api_key_elastic # API key of python-jithin
+
+        VT_KEY = api_key_vt
+
+        CB_URL = "https://defense-eu.conferdeploy.net"
+        CB_API_ID = cb_api_id
+        CB_API_KEY = cb_api_key
+        CB_ORG_KEY = cb_api_org
+
+        jira = JIRA(server="https://authentix.atlassian.net", basic_auth=(username,password))
+        issue = jira.issue(issue_id)
+        flag = 0
+        id = ''
+        match = []
+        for line in issue.fields.description.split("\n"):
+            # Replace the regex with your specific hash pattern
+            matches = re.findall(r'\* *Elastic Alert ID\*: ([\w\d]+)', line)
+            if len(matches) > 0:
+                match.append(matches[0])
+
+
+        hostname_id = {}
+        alert_file_hostname = {}
+
+        cbc_api = CBCloudAPI(url= CB_URL, token=f"{CB_API_KEY}/{CB_API_ID}",org_key=CB_ORG_KEY)
+
+        # Add headers for the elastic search access
+        HEADERS = {
+            "Authorization": f"ApiKey {API_KEY}",
+            "Content-Type": "application/json"
+        }
+
+        number_of_days = 3
+        number_of_hours = 5
+
+        #alert_id_dict = get_alert_id_key(number_of_days)
+        #print(alert_id_dict)
+
+        # Define a date range for the alerts needs to be checked
+        end_date = datetime.utcnow()
+        start_date = end_date - timedelta(days=number_of_days)
+
+        current_datetime = datetime.today()
+        current_date = current_datetime.date().isoformat()
+
+        jira_description = ""
+
+
+        SIZE = 100
+        for id in match:
+            # Define the query for getting the alert with Brute force as the rulename
+            query = {
+                    "size": 10,
+                    "from": 0,
+                    "query": {
+                    "bool": {
+                        "filter": [
+                        {
+                            "bool": {
+                            "must": [],
+                            "filter": [
+                                {
+                                "bool": {
+                                    "should": [
+                                    {
+                                        "match_phrase": {
+                                        "_id": id
+                                        }
+                                    }
+                                    ],
+                                    "minimum_should_match": 1
+                                }
+                                },
+                                {
+                                "bool": {
+                                    "should": [
+                                    {
+                                        "match_phrase": {
+                                        "kibana.alert.workflow_status": "acknowledged"
+                                        }
+                                    },
+                                    {
+                                        "match_phrase": {
+                                        "kibana.alert.workflow_status": "open"
+                                        }
+                                    },
+                                    {
+                                        "match_phrase": {
+                                        "kibana.alert.workflow_status": "closed"
+                                        }
+                                    }
+                                    ],
+                                    "minimum_should_match": 1
+                                }
+                                },
+                                {
+                                "range": {
+                                    "@timestamp": {
+                                    "gte": start_date.isoformat(),
+                                    "lt": end_date.isoformat()
+                                    }
+                                }
+                                }
+                            ],
+                            "should": [],
+                            "must_not": []
+                            }
+                        },
+                        {
+                            "term": {
+                            "kibana.space_ids": "default"
+                            }
+                        }
+                        ]
+                    }
+                    }
+                }
+                # Send the search request to Elasticsearch
+            response = requests.post(
+                f"{ELASTICSEARCH_URL}/{INDEX_NAME}/_search",
+                headers=HEADERS,
+                json=query
+            )
+            # Handle the response
+            if response.status_code == 200:
+                #print(response.json()['hits'])
+                hits = response.json()["hits"]["hits"]
+                if not hits:
+                    break
+                for hit in hits:
+                    alert_id = hit['_id']
+                    host_name = hit['_source']['host']['hostname']
+                    file_name = hit['_source']['file']['path']
+                    new_path = file_name.replace('\\New', '')
+                    file_name = new_path
+                    #print("Alert ID: " + alert_id)
+                    jira_description += f"- *Alert ID:* {alert_id} \n"
+                    #print("Hostname: " + host_name)
+                    jira_description += f"- *Hostname:* {host_name} \n"
+                    #print("Filepath: " + file_name)
+                    jira_description += f"- *Filepath:* {file_name} \n"
+                    sensor = cbc_api.select(Device).where(f"name:{host_name}").first()
+                    lr_session_i = sensor.lr_session()
+                    command = f"powershell /c Get-FileHash -Algorithm MD5 '{file_name}' "
+                    input_str = lr_session_i.create_process(rf"{command}",wait_for_completion=True, wait_for_output=True).decode('utf-8')
+                    command = f"powershell /c Get-AuthenticodeSignature '{file_name}' | Format-List * "
+                    sign_cb = lr_session_i.create_process(rf"{command}",wait_for_completion=True, wait_for_output=True).decode('utf-8')
+                    match = re.search(r'\b[A-Fa-f0-9]{32}\b', input_str)
+                    hash = match.group()
+                    api_key = VT_KEY
+                    file_hash = hash
+                    jira_description += f"- *Hash:* {hash} \n"
+                    matches = re.findall(r'CN=([\w\d]+)', sign_cb)
+                    signature = matches[0]
+                    matches = re.findall(r'Status                 : ([\w\d]+)', sign_cb)
+                    status = matches[0]
+                    jira_description += f"- *Signature Info from machine:*  \n"
+                    jira_description += f"-- *Signed by:* {signature} \n"
+                    jira_description += f"-- *Status:* {status} \n"
+
+                    headers = {
+                        'x-apikey': api_key,
+                    }
+                    response = requests.get(f'https://www.virustotal.com/api/v3/files/{file_hash}', headers=headers)
+                    if response.status_code == 200:
+                        # Convert response to JSON and print
+                        response_data = response.json()
+                        #print(response_data)
+                    else:
+                        print(f"Error: {response.status_code}")
+                        print(response.text)
+                    vt_data = response_data['data']['attributes']
+                    #dict_keys(['id', 'type', 'links', 'attributes'])
+                    if 'signature_info' in vt_data.keys():
+                        jira_description += f"- *Signature Info from VT:* \n"
+                        jira_description += f"-- *Copyright:* {str(vt_data['signature_info']['copyright'])} \n"
+                    if vt_data['last_analysis_stats']['malicious'] != 0:
+                        print(vt_data['popular_threat_classification']['suggested_threat_label'])
+                        jira_description += f"-- *Threat Name:* {vt_data['popular_threat_classification']['suggested_threat_label']} \n"
+                        print(vt_data['last_analysis_stats']['malicious'])
+                        jira_description += f"-- *Number of Vendors marked as Malicious:* {vt_data['last_analysis_stats']['malicious']} \n"
+                    else:
+                        jira_description += "-- *Veredict:* Clean \n"
+            else:
+                print(f"Error: {response.status_code}")
+                print(response.text)
+            jira_description += f"\n\n"   
+        return jira_description   
+
 if __name__ == "__main__":
     JiraAnomal.run()

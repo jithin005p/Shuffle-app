@@ -1,1 +1,2 @@
 jira
+carbon-black-cloud-sdk

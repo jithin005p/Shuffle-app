@@ -151,3 +151,16 @@ actions:
     returns:
       schema:
         type: string
+  - name: printspooler
+    description: Get the details for printspooler alerts
+    parameters:
+      - name: issue_id
+        description: Issue ID from JIRA
+        example: "This"
+        required: true
+        multiline: false
+        schema:
+          type: string
+    returns:
+      schema:
+        type: string
