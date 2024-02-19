@@ -67,6 +67,13 @@ authentication:
       multiline: false
       schema:
         type: string
+    - name: api_key_vt
+      description: API key of VT
+      example: "This"
+      required: true
+      multiline: false
+      schema:
+        type: string
 actions:
   - name: get_hash
     description: Get hash of process from JIRA description for the specified ID
