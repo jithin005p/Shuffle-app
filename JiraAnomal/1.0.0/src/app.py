@@ -940,7 +940,7 @@ class JiraAnomal(AppBase):
     
     def printspooler(self,username, password, api_key_elastic, api_key_vt, elastic_url, cb_api_id, cb_api_key, cb_api_org, issue_id):
          # Configuration
-        ELASTICSEARCH_URL = "https://rychiger-siem.es.eu-central-1.aws.cloud.es.io"
+        ELASTICSEARCH_URL = elastic_url
         INDEX_NAME = ".alerts-security.alerts-default*"  # Replace with your actual index pattern for security alerts
         API_KEY = api_key_elastic # API key of python-jithin
 

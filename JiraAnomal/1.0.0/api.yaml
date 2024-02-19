@@ -46,6 +46,27 @@ authentication:
       multiline: false
       schema:
         type: string
+    - name: cb_api_id
+      description: API ID to CB
+      example: "******"
+      required: true
+      multiline: false
+      schema:
+        type: string
+    - name: cb_api_key
+      description: API key to CB
+      example: "This"
+      required: true
+      multiline: false
+      schema:
+        type: string
+    - name: cb_api_org
+      description: ORG KEY
+      example: "This"
+      required: true
+      multiline: false
+      schema:
+        type: string
 actions:
   - name: get_hash
     description: Get hash of process from JIRA description for the specified ID
