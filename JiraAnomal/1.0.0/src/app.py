@@ -876,14 +876,14 @@ class JiraAnomal(AppBase):
                             #print(a['_source']['o365']['audit']['LogonError'])
                             if 'LogonError' in a['_source']['o365']['audit'].keys():
                                 b = a['_source']['o365']['audit']['LogonError']
+                                if b not in user_failure_reason[username_i]:
+                                    user_failure_reason[username_i].append(b)
                             else:
                                 b = ''
                             #print(b)
                             if username_i not in user_failed_login:
                                 user_failed_login.append(username_i)
                                 user_fail_count[username_i] = 0
-                            if b not in user_failure_reason[username_i]:
-                                user_failure_reason[username_i].append(b)
                             user_fail_count[username_i] += 1
                             #print(user_failure_reason[username_i])
                         else:
