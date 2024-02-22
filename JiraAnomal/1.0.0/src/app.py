@@ -894,6 +894,8 @@ class JiraAnomal(AppBase):
                 if len(hits) < SIZE: #Last page of alert is parsed
                     break
                 page += 1
+            else:
+                break
         jira_description += f"- *Users with successful login:* \n"
         if len(user_logged_in) == 0:
             jira_description += f"-- No successful login \n"
