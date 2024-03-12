@@ -775,10 +775,10 @@ class JiraAnomal(AppBase):
                         if len(hits) < SIZE:
                             break
                         page_act += 1
-                    ip_counts = Counter(ip_list)
+                ip_counts = Counter(ip_list)
 
-                    # Sort IPs by their occurrence (descending) and then alphabetically
-                    sorted_ips_by_occurrence = sorted(ip_counts.items(), key=lambda x: (-x[1], x[0]))
+                # Sort IPs by their occurrence (descending) and then alphabetically
+                sorted_ips_by_occurrence = sorted(ip_counts.items(), key=lambda x: (-x[1], x[0]))
 
                     # Extract sorted IPs without counts
                 flag = 0
