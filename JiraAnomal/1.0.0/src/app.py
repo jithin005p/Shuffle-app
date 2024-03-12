@@ -4,6 +4,7 @@ import requests
 from datetime import datetime, timedelta, timezone
 from cbc_sdk import CBCloudAPI
 from cbc_sdk.platform import Device
+from collections import Counter
 
 from walkoff_app_sdk.app_base import AppBase
 
@@ -473,7 +474,7 @@ class JiraAnomal(AppBase):
         else:
             return None
 
-    def multiple_logon_failure(self, api_key_elastic, elastic_url, id_list):
+    def multiple_logon_failure(self, api_key_abuse, api_key_elastic, elastic_url, id_list):
         ELASTICSEARCH_URL = elastic_url
         API_KEY = api_key_elastic
 
@@ -614,6 +615,7 @@ class JiraAnomal(AppBase):
                             jira_description += f"*winlog.event_data.AuthenticationPackageName:* {AuthenticationPackageName} \n"
                             jira_description += f"*winlog.logon.failure.reason:* {failureReason} \n"
             INDEX_NAME = ".ds-logs-system.security-default*"
+            jira_description += "\n\n\n"
             s_start = datetime.fromisoformat(start_time.rstrip("Z"))
             logon_start = (s_start - timedelta(hours=1)).isoformat()
             logon_end = (s_start + timedelta(hours=1)).isoformat()
@@ -675,27 +677,121 @@ class JiraAnomal(AppBase):
                     }
                 }
                 }
-            SIZE = 100
-            page = 0
-            event_action = []
-            while True:
-                from_parameter = page * SIZE
-                response = requests.post(f"{ELASTICSEARCH_URL}/{INDEX_NAME}/_search?from={from_parameter}&size={SIZE}",headers=HEADERS,json=query)
-                #print(response.json())
-                if response.status_code == 200:
+                SIZE = 100
+                page = 0
+                event_action = []
+                while True:
+                    from_parameter = page * SIZE
+                    response = requests.post(f"{ELASTICSEARCH_URL}/{INDEX_NAME}/_search?from={from_parameter}&size={SIZE}",headers=HEADERS,json=query)
                     #print(response.json())
-                    hits = response.json()["hits"]["hits"]
-                    for a in hits:
-                        print(a['_source']['event']['action'])
-                        action = a['_source']['event']['action']
-                        if action not in event_action:
-                            event_action.append(action)
-                    if len(hits) < SIZE: #Last page of alert is parsed
+                    if response.status_code == 200:
+                        #print(response.json())
+                        hits = response.json()["hits"]["hits"]
+                        for a in hits:
+                            print(a['_source']['event']['action'])
+                            action = a['_source']['event']['action']
+                            if action not in event_action:
+                                event_action.append(action)
+                        if len(hits) < SIZE: #Last page of alert is parsed
+                            break
+                        page += 1
+                jira_description += f"*Actions done by the user {user} from the source ip {ip} on hostname {hostname}:* \n"
+                for action in event_action:
+                    jira_description += f"- {action} \n"
+            else:
+                s_start = datetime.fromisoformat(start_time.rstrip("Z"))
+                logon_start = (s_start - timedelta(days=1)).isoformat()
+                logon_end = (s_start).isoformat()
+                asa_query = {
+                    "query": {
+                            "bool": {
+                            "must": [],
+                            "filter": [
+                                {
+                                "bool": {
+                                    "filter": [
+                                    {
+                                        "bool": {
+                                        "should": [
+                                            {
+                                            "term": {
+                                                "event.dataset": {
+                                                "value": "cisco_asa.log"
+                                                }
+                                            }
+                                            }
+                                        ],
+                                        "minimum_should_match": 1
+                                        }
+                                    },
+                                    {
+                                        "bool": {
+                                        "should": [
+                                            {
+                                            "term": {
+                                                "event.action": {
+                                                "value": "logon-failed"
+                                                }
+                                            }
+                                            }
+                                        ],
+                                        "minimum_should_match": 1
+                                        }
+                                    }
+                                    ]
+                                }
+                                },
+                                {
+                                "range": {
+                                    "@timestamp": {
+                                    "format": "strict_date_optional_time",
+                                    "gte": logon_start,
+                                    "lte": logon_end
+                                    }
+                                }
+                                }
+                            ],
+                            "should": [],
+                            "must_not": []
+                            }
+                        }
+                }
+                INDEX_NAME = ".ds-logs-cisco_asa.log*"
+                ip_list = []
+                page_act = 0
+                SIZE = 1000
+                while True:
+                    from_parameter_act = page_act * SIZE
+                    response = requests.post(
+                        f"{ELASTICSEARCH_URL}/{INDEX_NAME}/_search?from={from_parameter_act}&size={SIZE}",
+                        headers=HEADERS,
+                        json=asa_query
+                    )
+                    if response.status_code == 200:
+                        hits = response.json()["hits"]["hits"]
+                        if hits:
+                            for hit in hits:
+                                ip_list.append(hit['_source']['source']['ip'])
+                        if len(hits) < SIZE:
+                            break
+                        page_act += 1
+                    ip_counts = Counter(ip_list)
+
+                    # Sort IPs by their occurrence (descending) and then alphabetically
+                    sorted_ips_by_occurrence = sorted(ip_counts.items(), key=lambda x: (-x[1], x[0]))
+
+                    # Extract sorted IPs without counts
+                flag = 0
+                jira_description += "*Abuse IP Check for top 5 Source IP address:*\n"
+                for ip, count in sorted_ips_by_occurrence:
+                    print(ip, count)
+                    a = self.check_ip_abuse(ip, api_key_abuse)
+                    jira_description += f"-{a} Count:{count}\n"
+                    if flag == 5:
                         break
-                    page += 1
-            jira_description += f"*Actions done by the user {user} from the source ip {ip} on hostname {hostname}:* \n"
-            for action in event_action:
-                jira_description += f"- {action} \n"
+                    else:
+                        flag += 1
+                #print(sorted_ips_by_occurrence)
         else:
             jira_description += f"Error in fetching alert {id} \n"
         return jira_description
