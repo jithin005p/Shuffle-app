@@ -1220,8 +1220,10 @@ class JiraAnomal(AppBase):
                         jira_description += f"- *Signature Info from VT:* \n"
                         jira_description += f"-- *Copyright:* {str(vt_data['signature_info']['copyright'])} \n"
                     if vt_data['last_analysis_stats']['malicious'] != 0:
-                        print(vt_data['popular_threat_classification']['suggested_threat_label'])
-                        jira_description += f"-- *Threat Name:* {vt_data['popular_threat_classification']['suggested_threat_label']} \n"
+                        try:
+                            jira_description += f"-- *Threat Name:* {vt_data['popular_threat_classification']['suggested_threat_label']} \n"
+                        except:
+                            i = 0
                         print(vt_data['last_analysis_stats']['malicious'])
                         jira_description += f"-- *Number of Vendors marked as Malicious:* {vt_data['last_analysis_stats']['malicious']} \n"
                     else:
