@@ -1286,5 +1286,31 @@ class JiraAnomal(AppBase):
             print("Failed to search JIRA issues:", response.content)
         return str(issue_list)
 
+    def get_elastic_id_timer(self, username, password, issue_id_list):
+        jira = JIRA(
+        server="https://authentix.atlassian.net",
+        basic_auth=(username,password)
+        )
+        iss = issue_id_list.split(',')
+        elastic_id_list = ''
+        for issue_id in iss:
+            if(len(issue_id)) > 0:
+                issue = jira.issue(issue_id)
+                flag = 0
+                id = ''
+                for line in issue.fields.description.split("\n"):
+                    # Replace the regex with your specific hash pattern
+                    matches = re.findall(r'\* *Elastic Alert ID\*: ([\w\d]+)', line)
+                    if matches:
+                        flag = 1
+                        id = matches[0]
+                        break
+                        
+                if flag == 1:
+                    elastic_id_list += id
+                    elastic_id_list += ','
+        return elastic_id_list
+
+
 if __name__ == "__main__":
     JiraAnomal.run()
