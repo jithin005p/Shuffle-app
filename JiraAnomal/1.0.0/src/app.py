@@ -1342,7 +1342,7 @@ class JiraAnomal(AppBase):
 
 
         iss = json.loads(id_elastic_list)
-        issue_json = iss['issue'] 
+        issue_json = iss["issue"] 
         for id_elastic in issue_json:
             id = issue_json[id_elastic]
 
@@ -1563,7 +1563,7 @@ class JiraAnomal(AppBase):
             jira_description += '\nShuffle-End\n'
             a = {}
             a[id_elastic] = jira_description
-            jira_desc['issues'].append(a)
+            jira_desc["issues"].append(a)
         return(jira_desc)
 
 if __name__ == "__main__":
