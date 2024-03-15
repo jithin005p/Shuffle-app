@@ -1281,6 +1281,7 @@ class JiraAnomal(AppBase):
             for issue in issues:
                 if issue['key'] not in issue_list and 'Shuffle-End' not in issue['fields']['description']:
                     issue_list += issue['key']
+                    issue_list += ','
         else:
             print("Failed to search JIRA issues:", response.content)
         return str(issue_list)
