@@ -5,6 +5,8 @@ from datetime import datetime, timedelta, timezone
 from cbc_sdk import CBCloudAPI
 from cbc_sdk.platform import Device
 from collections import Counter
+from requests.auth import HTTPBasicAuth
+import json
 
 from walkoff_app_sdk.app_base import AppBase
 
@@ -1232,7 +1234,56 @@ class JiraAnomal(AppBase):
                 print(f"Error: {response.status_code}")
                 print(response.text)
             jira_description += f"\n\n"   
-        return jira_description   
+        return jira_description
+    
+    def scan_alert(self, username, password, alert):
+        # JIRA credentials and URL
+        jira_url = "https://authentix.atlassian.net"
+
+        # Construct JQL query
+        one_hour_ago = (datetime.now() - timedelta(hours=1)).strftime('%Y-%m-%d %H:%M')
+        jql_query = f'summary ~ "{alert}" AND created >= "{one_hour_ago}"'
+
+        # Headers for the request
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json"
+        }
+
+        # Prepare the search URL
+        search_url = f'{jira_url}/rest/api/2/search'
+
+        # Data for the POST request
+        data = {
+            'jql': jql_query,
+            'startAt': 0,
+            'maxResults': 50,  # Adjust based on your needs
+            'fields': [
+                'summary',
+                'description',
+                'created'
+            ]
+        }
+
+        # Make the request to JIRA
+        response = requests.post(
+            search_url,
+            headers=headers,
+            data=json.dumps(data),
+            auth=HTTPBasicAuth(username, password)
+        )
+
+        issue_list = ''
+
+        # Check for successful response
+        if response.status_code == 200:
+            issues = response.json().get('issues', [])
+            for issue in issues:
+                if issue['key'] not in issue_list and 'Shuffle-End' not in issue['fields']['description']:
+                    issue_list += issue['key']
+        else:
+            print("Failed to search JIRA issues:", response.content)
+        return str(issue_list)
 
 if __name__ == "__main__":
     JiraAnomal.run()

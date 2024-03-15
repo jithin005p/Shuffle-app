@@ -192,3 +192,17 @@ actions:
     returns:
       schema:
         type: string
+  - name: scan_alert
+    description: Get alert id 
+    parameters:
+      - name: alert
+        description: Alert name to search for
+        example: "This"
+        required: true
+        multiline: false
+        schema:
+          type: string
+    returns:
+      schema:
+        type: string
+        
