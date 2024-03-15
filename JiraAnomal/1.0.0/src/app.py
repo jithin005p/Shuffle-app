@@ -1292,8 +1292,10 @@ class JiraAnomal(AppBase):
         basic_auth=(username,password)
         )
         iss = issue_id_list.split(',')
-        elastic_id_list = ''
+        elastic_id_list = {}
+        elastic_id_list['issue'] = [] 
         for issue_id in iss:
+            flag_t = {}
             if(len(issue_id)) > 0:
                 issue = jira.issue(issue_id)
                 flag = 0
@@ -1307,10 +1309,262 @@ class JiraAnomal(AppBase):
                         break
                         
                 if flag == 1:
-                    elastic_id_list += id
-                    elastic_id_list += ','
+                    flag_t[issue_id] = id
+                    elastic_id_list['issue'].append(flag_t)
         return elastic_id_list
 
+    def bruteforce_timer(self, api_key_elastic, api_key_abuse, api_key_grey, elastic_url, id_elastic_list):
+        # Configuration
+        ELASTICSEARCH_URL = elastic_url
+        INDEX_NAME = ".internal.alerts-security.alerts-default*"  # Replace with your actual index pattern for security alerts
+        API_KEY = api_key_elastic
+        API_KEY_ABUSE = api_key_abuse
+        API_KEY_GREY = api_key_grey
+
+        ip_rep_abuse = {}
+        ip_rep_grey = {}
+
+        # Add headers for the elastic search access
+        HEADERS = {
+            "Authorization": f"ApiKey {API_KEY}",
+            "Content-Type": "application/json"
+        }
+
+        number_of_days = 5
+        number_of_hours = 5
+
+        # Define a date range for the alerts needs to be checked
+        end_date = datetime.now(timezone.utc)
+        start_date = end_date - timedelta(days=30)
+
+        jira_desc = {}
+        jira_desc['issues'] = [] 
+
+
+        iss = json.loads(id_elastic_list)
+        issue_json = iss['issue'] 
+        for id_elastic in issue_json:
+            id = issue_json[id_elastic]
+
+            SIZE = 100
+
+            query = {
+                "size": 10,
+                "from": 0,
+                "query": {
+                "bool": {
+                    "filter": [
+                    {
+                        "bool": {
+                        "must": [],
+                        "filter": [
+                            {
+                            "bool": {
+                                "should": [
+                                {
+                                    "match_phrase": {
+                                    "_id": id
+                                    }
+                                }
+                                ],
+                                "minimum_should_match": 1
+                            }
+                            },
+                            {
+                            "bool": {
+                                "should": [
+                                {
+                                    "match_phrase": {
+                                    "kibana.alert.workflow_status": "acknowledged"
+                                    }
+                                },
+                                {
+                                    "match_phrase": {
+                                    "kibana.alert.workflow_status": "open"
+                                    }
+                                },
+                                {
+                                    "match_phrase": {
+                                    "kibana.alert.workflow_status": "closed"
+                                    }
+                                }
+                                ],
+                                "minimum_should_match": 1
+                            }
+                            },
+                            {
+                            "range": {
+                                "@timestamp": {
+                                "gte": start_date.isoformat(),
+                                "lt": end_date.isoformat()
+                                }
+                            }
+                            }
+                        ],
+                        "should": [],
+                        "must_not": []
+                        }
+                    },
+                    {
+                        "term": {
+                        "kibana.space_ids": "default"
+                        }
+                    }
+                    ]
+                }
+                }
+            }
+            jira_description = f""
+            user_name = "" 
+            response = requests.post(f"{ELASTICSEARCH_URL}/{INDEX_NAME}/_search",headers=HEADERS,json=query)
+            if response.status_code == 200:
+                hits = response.json()["hits"]["hits"][0]["_source"]
+                if hits:    
+                    #print(hit["_source"]["kibana.alert.original_time"])
+                    user_name = hits["user.id"]
+                    org_time_str = hits["kibana.alert.original_time"]
+                    jira_description += f"- *User Name*: {user_name} \n"
+                    # Convert the string to a datetime object
+                    org_time = datetime.fromisoformat(org_time_str.rstrip("Z"))
+                    org_start_time = org_time - timedelta(days=3)
+                    org_time = org_time + timedelta(hours=1)
+                    org_time_str = org_time.isoformat() + "Z"
+                    org_start_time_str = org_start_time.isoformat() + "Z"
+                    #print(org_start_time_str)
+                    #print(org_time_str)
+
+                    #Writing a Query for getting the activity of the user in the timeline mentioned above.
+                    query_user = {
+                        "query": {
+                            "bool": {
+                                "filter": [
+                                    {
+                                        "range": {
+                                            "@timestamp": {
+                                                "gte": org_start_time_str,
+                                                "lte": org_time_str
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "bool": {
+                                            "filter": [
+                                                {
+                                                    "bool": {
+                                                        "should": [
+                                                            {
+                                                                "term": {
+                                                                    "user.id": {
+                                                                        "value": user_name
+                                                                    }
+                                                                }
+                                                            }
+                                                        ],
+                                                        "minimum_should_match": 1
+                                                    }
+                                                },
+                                                {
+                                                    "bool": {
+                                                        "should": [
+                                                            {
+                                                                "term": {
+                                                                    "event.action": {
+                                                                        "value": "UserLoggedIn"
+                                                                    }
+                                                                }
+                                                            }
+                                                        ],
+                                                        "minimum_should_match": 1
+                                                    }
+                                                }
+                                            ]
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    }
+
+                    #This is the index that contain the logs for bruteforce attack to a Microsoft 365 User
+                    INDEX_NAME = ".ds-logs-o365.audit-default*"
+                    usecase = "Successful Login Check"
+                    jira_description += self.parse_logs(ELASTICSEARCH_URL, INDEX_NAME, SIZE, HEADERS, query_user, usecase, API_KEY_ABUSE, API_KEY_GREY)
+                    ###Usecase 2 Password Guessed Correctly###################
+                    query_failed = {
+                        "query": {
+                            "bool": {
+                                "must": [],
+                                "filter": [
+                                    {
+                                    "bool": {
+                                        "filter": [
+                                        {
+                                            "bool": {
+                                            "should": [
+                                                {
+                                                "term": {
+                                                    "user.id": {
+                                                    "value": user_name
+                                                    }
+                                                }
+                                                }
+                                            ],
+                                            "minimum_should_match": 1
+                                            }
+                                        },
+                                        {
+                                            "bool": {
+                                            "should": [
+                                                {
+                                                "term": {
+                                                    "o365.audit.LogonError": {
+                                                    "value": "UserStrongAuthClientAuthNRequiredInterrupt"
+                                                    }
+                                                }
+                                                }
+                                            ],
+                                            "minimum_should_match": 1
+                                            }
+                                        }
+                                        ]
+                                    }
+                                    },
+                                    {
+                                    "range": {
+                                        "@timestamp": {
+                                        "gte": org_start_time_str,
+                                        "lte": org_time_str
+                                        }
+                                    }
+                                    },
+                                    {
+                                    "match_phrase": {
+                                        "event.action": "UserLoginFailed"
+                                    }
+                                    },
+                                    {
+                                    "match_phrase": {
+                                        "o365.audit.LogonError": "UserStrongAuthClientAuthNRequiredInterrupt"
+                                    }
+                                    }
+                                ],
+                                "should": [],
+                                "must_not": []
+                            }
+                        }
+                    }
+                    usecase = "Successful Guess of Password Check"
+                    jira_description += self.parse_logs(ELASTICSEARCH_URL, INDEX_NAME, SIZE, HEADERS, query_failed, usecase, API_KEY_ABUSE, API_KEY_GREY)  
+                    
+            else:
+                print(f"Error: {response.status_code}")
+                print(response.text)
+                jira_description += f"Error: {response.status_code}\n {response.text}" 
+            jira_description += '\nShuffle-End\n'
+            a = {}
+            a[id_elastic] = jira_description
+            jira_desc['issues'].append(a)
+        return(jira_desc)
 
 if __name__ == "__main__":
     JiraAnomal.run()
