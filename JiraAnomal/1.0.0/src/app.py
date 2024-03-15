@@ -1293,7 +1293,7 @@ class JiraAnomal(AppBase):
         )
         iss = issue_id_list.split(',')
         elastic_id_list = {}
-        elastic_id_list['issue'] = [] 
+        elastic_id_list["issue"] = [] 
         for issue_id in iss:
             flag_t = {}
             if(len(issue_id)) > 0:
@@ -1310,7 +1310,7 @@ class JiraAnomal(AppBase):
                         
                 if flag == 1:
                     flag_t[issue_id] = id
-                    elastic_id_list['issue'].append(flag_t)
+                    elastic_id_list["issue"].append(flag_t)
         return str(elastic_id_list)
 
     def bruteforce_timer(self, api_key_elastic, api_key_abuse, api_key_grey, elastic_url, id_elastic_list):
