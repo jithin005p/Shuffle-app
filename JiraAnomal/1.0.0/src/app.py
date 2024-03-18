@@ -163,7 +163,7 @@ class JiraAnomal(AppBase):
 
     def get_hash(self, username, password, issue_id):
         jira = JIRA(
-        server="https://authentix.atlassian.net",
+        server="https://anomal.atlassian.net",
         basic_auth=(username,password)
         )
         issue = jira.issue(issue_id)
@@ -183,7 +183,7 @@ class JiraAnomal(AppBase):
         
     def append_desc_vt(self, username, password, issue_id, desc):
         jira = JIRA(
-        server="https://authentix.atlassian.net",
+        server="https://anomal.atlassian.net",
         basic_auth=(username,password)
         )
         issue = jira.issue(issue_id)
@@ -449,7 +449,7 @@ class JiraAnomal(AppBase):
                 
     def get_elastic_id(self, username, password, issue_id):
         jira = JIRA(
-        server="https://authentix.atlassian.net",
+        server="https://anomal.atlassian.net",
         basic_auth=(username,password)
         )
         issue = jira.issue(issue_id)
@@ -800,7 +800,7 @@ class JiraAnomal(AppBase):
     
     def append_desc(self, username, password, issue_id, desc):
         jira = JIRA(
-        server="https://authentix.atlassian.net",
+        server="https://anomal.atlassian.net",
         basic_auth=(username,password)
         )
         issue = jira.issue(issue_id)
@@ -1026,7 +1026,7 @@ class JiraAnomal(AppBase):
         
     def get_brute_jira(self, username, password):
         # Jira connection details
-        jira_url = 'https://authentix.atlassian.net'
+        jira_url = 'https://anomal.atlassian.net'
         jira_username = username
         jira_password = password  # Consider using API token instead of password
 
@@ -1054,7 +1054,7 @@ class JiraAnomal(AppBase):
         CB_API_KEY = cb_api_key
         CB_ORG_KEY = cb_api_org
 
-        jira = JIRA(server="https://authentix.atlassian.net", basic_auth=(username,password))
+        jira = JIRA(server="https://anomal.atlassian.net", basic_auth=(username,password))
         issue = jira.issue(issue_id)
         flag = 0
         id = ''
@@ -1238,7 +1238,7 @@ class JiraAnomal(AppBase):
     
     def scan_alert(self, username, password, alert):
         # JIRA credentials and URL
-        jira_url = "https://authentix.atlassian.net"
+        jira_url = "https://anomal.atlassian.net"
 
         # Construct JQL query
         one_hour_ago = (datetime.now() - timedelta(hours=1)).strftime('%Y-%m-%d %H:%M')
@@ -1288,7 +1288,7 @@ class JiraAnomal(AppBase):
 
     def get_elastic_id_timer(self, username, password, issue_id_list):
         jira = JIRA(
-        server="https://authentix.atlassian.net",
+        server="https://anomal.atlassian.net",
         basic_auth=(username,password)
         )
         iss = issue_id_list.split(',')
