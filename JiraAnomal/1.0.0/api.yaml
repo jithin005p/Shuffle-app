@@ -230,4 +230,14 @@ actions:
           type: string
     returns:
       schema:
-        type: string       
+        type: string  
+  - name: append_desc_timer
+    description: Append the enrichment details from VT to issue id description 
+    parameters:
+      - name: desc
+        description: The JSON to handle
+        example: "This"
+        required: true
+        multiline: true
+        schema:
+          type: string     

@@ -1077,7 +1077,7 @@ class JiraAnomal(AppBase):
             "Content-Type": "application/json"
         }
 
-        number_of_days = 3
+        number_of_days = 10
         number_of_hours = 5
 
         #alert_id_dict = get_alert_id_key(number_of_days)
@@ -1565,6 +1565,23 @@ class JiraAnomal(AppBase):
             a[id_elastic] = jira_description
             jira_desc["issues"].append(a)
         return(jira_desc)
+
+    def append_desc_timer(self, username, password, desc):
+        jira = JIRA(
+        server="https://anomal.atlassian.net",
+        basic_auth=(username,password)
+        )
+        for a in desc['issues']:
+            iss = next(iter(a.values()))
+            id = next((k for k, v in a.items() if v == iss), None)
+            issue = jira.issue(id)
+            vt_data = iss
+
+            # Append additional details to the current description
+            new_description = issue.fields.description + "\n" + vt_data
+
+            # Update the issue
+            issue.update(fields={"description": new_description})
 
 if __name__ == "__main__":
     JiraAnomal.run()
