@@ -1345,7 +1345,7 @@ class JiraAnomal(AppBase):
         #iss = json.loads(id_elastic_list)
         issue_json = id_elastic_list["issue"] 
         for id_elastic in issue_json:
-            id = issue_json[id_elastic]
+            id = next(iter(id_elastic.values()))
 
             SIZE = 100
 
@@ -1563,7 +1563,8 @@ class JiraAnomal(AppBase):
                 jira_description += f"Error: {response.status_code}\n {response.text}" 
             jira_description += '\nShuffle-End\n'
             a = {}
-            a[id_elastic] = jira_description
+            key = next((k for k, v in id_elastic.items() if v == id), None)
+            a[key] = jira_description
             jira_desc["issues"].append(a)
         return(jira_desc)
 
