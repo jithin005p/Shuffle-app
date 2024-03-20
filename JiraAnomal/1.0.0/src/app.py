@@ -1311,7 +1311,8 @@ class JiraAnomal(AppBase):
                 if flag == 1:
                     flag_t[issue_id] = id
                     elastic_id_list["issue"].append(flag_t)
-        return str(elastic_id_list)
+        a = json.dumps(elastic_id_list)
+        return (a)
 
     def bruteforce_timer(self, api_key_elastic, api_key_abuse, api_key_grey, elastic_url, id_elastic_list):
         # Configuration
