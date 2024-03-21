@@ -241,7 +241,7 @@ actions:
         multiline: true
         schema:
           type: string     
-  - name: password_spraying_timer
+  - name: password_spray_timer
   description: Takes care of the password spraying case for the mentioned id
   parameters:
     - name: id_elastic_list
