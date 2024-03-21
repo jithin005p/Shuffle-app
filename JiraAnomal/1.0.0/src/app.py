@@ -1682,8 +1682,7 @@ class JiraAnomal(AppBase):
                     #print(hits[0]['_source']['source.ip'])    
                     #print(hits[0]['_source']['kibana.alert.threshold_result']['from'])
                     source_ip = hits[0]['_source']['source.ip']
-                    spray_start = hits[0]['_source']['kibana.alert.threshold_result']['from']    
-                    print(spray_start)   
+                    spray_start = hits[0]['_source']['kibana.alert.threshold_result']['from']  
             else:
                 print("Error Fetching the issue")
             if len(spray_start) > 0:

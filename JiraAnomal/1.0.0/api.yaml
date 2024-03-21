@@ -242,15 +242,15 @@ actions:
         schema:
           type: string     
   - name: password_spray_timer
-  description: Takes care of the password spraying case for the mentioned id
-  parameters:
-    - name: id_elastic_list
-      description: id nmentioned in the Jira ticket
-      example: "This"
-      required: true
-      multiline: false
+    description: Takes care of the password spraying case for the mentioned id
+    parameters:
+      - name: id_elastic_list
+        description: id nmentioned in the Jira ticket
+        example: "This"
+        required: true
+        multiline: false
+        schema:
+          type: string
+    returns:
       schema:
-        type: string
-  returns:
-    schema:
-      type: string 
+        type: string 
