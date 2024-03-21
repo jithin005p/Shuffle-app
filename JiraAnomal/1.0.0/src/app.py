@@ -1585,7 +1585,7 @@ class JiraAnomal(AppBase):
             # Update the issue
             issue.update(fields={"description": new_description})
 
-    def password_spray_timer(api_key_elastic, api_key_abuse, elastic_url, id_elastic_list):
+    def password_spray_timer(self, api_key_elastic, api_key_abuse, elastic_url, id_elastic_list):
         # Configuration
         ELASTICSEARCH_URL = elastic_url
         API_KEY = api_key_elastic
@@ -1792,7 +1792,7 @@ class JiraAnomal(AppBase):
                 for oa in other_action:
                     jira_description += f"-- {oa}: {other_action[oa]} \n"
                 jira_description += f"- *Source IP reputation (abuse.ch):* \n"
-                jira_description += f"-- {check_ip_abuse(source_ip, api_key_abuse)}"
+                jira_description += f"-- {self.check_ip_abuse(source_ip, api_key_abuse)}"
 
                 jira_description += '\nShuffle-End\n'
                 b = {}
