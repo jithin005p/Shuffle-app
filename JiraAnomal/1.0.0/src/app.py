@@ -462,14 +462,6 @@ class JiraAnomal(AppBase):
                 flag = 1
                 id = matches[0]
                 break
-                #for a in matches:
-                #    id += a + ','
-        # Find the last occurrence of the comma
-        #last_comma_index = id.rfind(',')
-
-        # Remove the last comma using slicing if it exists
-        #if last_comma_index != -1:
-            #id = id[:last_comma_index] + id[last_comma_index+1:]
                 
         if flag == 1:
             return id
@@ -1798,6 +1790,336 @@ class JiraAnomal(AppBase):
                 b[key] = jira_description
                 jira_desc["issues"].append(b)
         return(jira_desc)
+    
+    def multiple_logon_failure_timer(self, api_key_abuse, api_key_elastic, elastic_url, id_list):
+        ELASTICSEARCH_URL = elastic_url
+        API_KEY = api_key_elastic
+
+        number_of_days = 10
+        # Define a date range for the alerts needs to be checked
+        end_date = datetime.utcnow()
+        start_date = end_date - timedelta(days=number_of_days)
+
+        HEADERS = {
+                    "Authorization": f"ApiKey {API_KEY}",
+                    "Content-Type": "application/json"
+                }
+
+        INDEX_NAME = ".alerts-security.alerts-default"
+        jira_desc = {}
+        jira_desc['issues'] = [] 
+        issue_json = id_list["issue"] 
+        for id_elastic in issue_json:
+
+            id = id = next(iter(id_elastic.values()))
+
+            query = {
+                "size": 10,
+                "from": 0,
+                "query": {
+                "bool": {
+                    "filter": [
+                    {
+                        "bool": {
+                        "must": [],
+                        "filter": [
+                            {
+                            "bool": {
+                                "should": [
+                                {
+                                    "match_phrase": {
+                                    "_id": id
+                                    }
+                                }
+                                ],
+                                "minimum_should_match": 1
+                            }
+                            },
+                            {
+                            "bool": {
+                                "should": [
+                                {
+                                    "match_phrase": {
+                                    "kibana.alert.workflow_status": "acknowledged"
+                                    }
+                                },
+                                {
+                                    "match_phrase": {
+                                    "kibana.alert.workflow_status": "open"
+                                    }
+                                },
+                                {
+                                    "match_phrase": {
+                                    "kibana.alert.workflow_status": "closed"
+                                    }
+                                }
+                                ],
+                                "minimum_should_match": 1
+                            }
+                            },
+                            {
+                            "range": {
+                                "@timestamp": {
+                                "gte": start_date.isoformat(),
+                                "lt": end_date.isoformat()
+                                }
+                            }
+                            }
+                        ],
+                        "should": [],
+                        "must_not": []
+                        }
+                    },
+                    {
+                        "term": {
+                        "kibana.space_ids": "default"
+                        }
+                    }
+                    ]
+                }
+                }
+            }
+            jira_description = f""
+            start_time = ""
+            domain = ""
+            hostname = ""
+            user = ""
+            ip = ""
+            response = requests.post(f"{ELASTICSEARCH_URL}/{INDEX_NAME}/_search",headers=HEADERS,json=query)
+            if response.status_code == 200:
+                hits = response.json()["hits"]["hits"]
+                if hits:    
+                    for hit in hits:
+                        for key in hit['_source']:
+                            if 'start' in key:
+                                start_time = hit['_source'][key]
+                                jira_description += f"*Start Time:* {start_time} \n"
+                            if 'host' in key:
+                                hostname = hit['_source'][key]['hostname']
+                                jira_description += f"*Hostname:* {hostname} \n"
+                            if 'source' in key:
+                                #print(hit['_source'][key]['ip'])
+                                ip = hit['_source'][key]['ip']
+                                domain = hit['_source'][key]['domain']
+                                jira_description += f"*Source IP:* {ip} \n"
+                                jira_description += f"*Domain:* {domain} \n"
+                            if 'user' in key:
+                                #print(hit['_source'][key]['name'])
+                                if 'name' in hit['_source'][key].keys():
+                                    user = hit['_source'][key]['name']
+                                else:
+                                    user = ''
+                                jira_description += f"*User.name:* {user} \n"
+                            if 'winlog' in key:
+                                subjectUsersId = hit['_source'][key]['event_data']['SubjectUserSid']
+                                logonType = hit['_source'][key]['event_data']['LogonType']
+                                if 'Status' in hit['_source'][key]['event_data'].keys():
+                                    Status = hit['_source'][key]['event_data']['Status']
+                                    SubStatus = hit['_source'][key]['event_data']['SubStatus']
+                                else:
+                                    Status = ''
+                                    SubStatus = ''
+                                TargetDomainName = hit['_source'][key]['event_data']['TargetDomainName']
+                                LogonProcessName = hit['_source'][key]['event_data']['LogonProcessName']
+                                AuthenticationPackageName = hit['_source'][key]['event_data']['AuthenticationPackageName']
+                                if 'failure' in hit['_source'][key]['logon'].keys():
+                                    failureReason = hit['_source'][key]['logon']['failure']['reason']
+                                else:
+                                    failureReason = ''
+                                jira_description += f"*winlog.event_data.SubjectUserSid:* {subjectUsersId} \n"
+                                jira_description += f"*winlog.event_data.LogonType:* {logonType} \n"
+                                jira_description += f"*winlog.event_data.Status:* {Status} \n"
+                                jira_description += f"*winlog.event_data.SubStatus:* {SubStatus} \n"
+                                jira_description += f"*winlog.event_data.TargetDomainName:* {TargetDomainName} \n"
+                                jira_description += f"*winlog.event_data.LogonProcessName:* {LogonProcessName} \n"
+                                jira_description += f"*winlog.event_data.AuthenticationPackageName:* {AuthenticationPackageName} \n"
+                                jira_description += f"*winlog.logon.failure.reason:* {failureReason} \n"
+                INDEX_NAME = ".ds-logs-system.security-default*"
+                jira_description += "\n\n\n"
+                s_start = datetime.fromisoformat(start_time.rstrip("Z"))
+                logon_start = (s_start - timedelta(hours=1)).isoformat()
+                logon_end = (s_start + timedelta(hours=1)).isoformat()
+                if ("2FA" not in domain):
+                    query =  {
+                        "query":{
+                        "bool": {
+                        "must": [],
+                        "filter": [
+                            {
+                            "bool": {
+                                "filter": [
+                                {
+                                    "bool": {
+                                    "should": [
+                                        {
+                                        "match_phrase": {
+                                            "source.ip": ip
+                                        }
+                                        }
+                                    ],
+                                    "minimum_should_match": 1
+                                    }
+                                },
+                                {
+                                    "bool": {
+                                    "should": [
+                                        {
+                                        "term": {
+                                            "host.name": {
+                                            "value": hostname
+                                            }
+                                        }
+                                        }
+                                    ],
+                                    "minimum_should_match": 1
+                                    }
+                                }
+                                ]
+                            }
+                            },
+                            {
+                            "range": {
+                                "@timestamp": {
+                                "format": "strict_date_optional_time",
+                                "gte": logon_start,
+                                "lte": logon_end
+                                }
+                            }
+                            },
+                            {
+                            "match_phrase": {
+                                "user.name": user
+                            }
+                            }
+                        ],
+                        "should": [],
+                        "must_not": []
+                        }
+                    }
+                    }
+                    SIZE = 100
+                    page = 0
+                    event_action = []
+                    while True:
+                        from_parameter = page * SIZE
+                        response = requests.post(f"{ELASTICSEARCH_URL}/{INDEX_NAME}/_search?from={from_parameter}&size={SIZE}",headers=HEADERS,json=query)
+                        #print(response.json())
+                        if response.status_code == 200:
+                            #print(response.json())
+                            hits = response.json()["hits"]["hits"]
+                            for a in hits:
+                                print(a['_source']['event']['action'])
+                                action = a['_source']['event']['action']
+                                if action not in event_action:
+                                    event_action.append(action)
+                            if len(hits) < SIZE: #Last page of alert is parsed
+                                break
+                            page += 1
+                    jira_description += f"*Actions done by the user {user} from the source ip {ip} on hostname {hostname}:* \n"
+                    for action in event_action:
+                        jira_description += f"- {action} \n"
+                else:
+                    s_start = datetime.fromisoformat(start_time.rstrip("Z"))
+                    logon_start = (s_start - timedelta(days=1)).isoformat()
+                    logon_end = (s_start).isoformat()
+                    asa_query = {
+                        "query": {
+                                "bool": {
+                                "must": [],
+                                "filter": [
+                                    {
+                                    "bool": {
+                                        "filter": [
+                                        {
+                                            "bool": {
+                                            "should": [
+                                                {
+                                                "term": {
+                                                    "event.dataset": {
+                                                    "value": "cisco_asa.log"
+                                                    }
+                                                }
+                                                }
+                                            ],
+                                            "minimum_should_match": 1
+                                            }
+                                        },
+                                        {
+                                            "bool": {
+                                            "should": [
+                                                {
+                                                "term": {
+                                                    "event.action": {
+                                                    "value": "logon-failed"
+                                                    }
+                                                }
+                                                }
+                                            ],
+                                            "minimum_should_match": 1
+                                            }
+                                        }
+                                        ]
+                                    }
+                                    },
+                                    {
+                                    "range": {
+                                        "@timestamp": {
+                                        "format": "strict_date_optional_time",
+                                        "gte": logon_start,
+                                        "lte": logon_end
+                                        }
+                                    }
+                                    }
+                                ],
+                                "should": [],
+                                "must_not": []
+                                }
+                            }
+                    }
+                    INDEX_NAME = ".ds-logs-cisco_asa.log*"
+                    ip_list = []
+                    page_act = 0
+                    SIZE = 1000
+                    while True:
+                        from_parameter_act = page_act * SIZE
+                        response = requests.post(
+                            f"{ELASTICSEARCH_URL}/{INDEX_NAME}/_search?from={from_parameter_act}&size={SIZE}",
+                            headers=HEADERS,
+                            json=asa_query
+                        )
+                        if response.status_code == 200:
+                            hits = response.json()["hits"]["hits"]
+                            if hits:
+                                for hit in hits:
+                                    ip_list.append(hit['_source']['source']['ip'])
+                            if len(hits) < SIZE:
+                                break
+                            page_act += 1
+                    ip_counts = Counter(ip_list)
+
+                    # Sort IPs by their occurrence (descending) and then alphabetically
+                    sorted_ips_by_occurrence = sorted(ip_counts.items(), key=lambda x: (-x[1], x[0]))
+
+                        # Extract sorted IPs without counts
+                    flag = 0
+                    jira_description += "*Abuse IP Check for top 5 Source IP address:*\n"
+                    for ip, count in sorted_ips_by_occurrence:
+                        print(ip, count)
+                        a = self.check_ip_abuse(ip, api_key_abuse)
+                        jira_description += f"-{a} Count:{count}\n"
+                        if flag == 5:
+                            break
+                        else:
+                            flag += 1
+                    #print(sorted_ips_by_occurrence)
+            else:
+                jira_description += f"Error in fetching alert {id} \n"
+            jira_description += '\nShuffle-End\n'
+            b = {}
+            key = next((k for k, v in id_elastic.items() if v == id), None)
+            b[key] = jira_description
+            jira_desc["issues"].append(b)
+        return jira_desc
 
 if __name__ == "__main__":
     JiraAnomal.run()

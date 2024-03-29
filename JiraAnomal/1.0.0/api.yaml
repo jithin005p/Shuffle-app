@@ -254,3 +254,16 @@ actions:
     returns:
       schema:
         type: string 
+  - name: multiple_logon_failure_timer
+    description: Takes care of the multiple logon error case for the mentioned id
+    parameters:
+      - name: id_list
+        description: id nmentioned in the Jira ticket
+        example: "This"
+        required: true
+        multiline: false
+        schema:
+          type: string
+    returns:
+      schema:
+        type: string 
