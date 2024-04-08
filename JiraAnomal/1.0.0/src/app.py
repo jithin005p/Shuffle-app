@@ -2121,7 +2121,7 @@ class JiraAnomal(AppBase):
             jira_desc["issues"].append(b)
         return jira_desc
 
-    def process_termination_timer(api_key_elastic, elastic_url, api_key_vt, id_elastic_list):
+    def process_termination_timer(self, api_key_elastic, elastic_url, api_key_vt, id_elastic_list):
         # Configuration
         ELASTICSEARCH_URL = elastic_url
         API_KEY = api_key_elastic
