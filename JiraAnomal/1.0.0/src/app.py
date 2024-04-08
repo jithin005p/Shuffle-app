@@ -2121,6 +2121,35 @@ class JiraAnomal(AppBase):
             jira_desc["issues"].append(b)
         return jira_desc
 
+    def get_multiple_elastic_id_timer(self, username, password, issue_id_list):
+        jira = JIRA(
+        server="https://anomal.atlassian.net",
+        basic_auth=(username,password)
+        )
+        iss = issue_id_list.split(',')
+        elastic_id_list = {}
+        elastic_id_list["issue"] = [] 
+        for issue_id in iss:
+            flag_t = {}
+            if(len(issue_id)) > 0:
+                issue = jira.issue(issue_id)
+                flag = 0
+                id = ''
+                a = []
+                for line in issue.fields.description.split("\n"):
+                    # Replace the regex with your specific hash pattern
+                    matches = re.findall(r'\* *Elastic Alert ID\*: ([\w\d]+)', line)
+                    if matches:
+                        flag = 1
+                        id = matches[0]
+                        a.append(id)
+                        
+                if flag == 1:
+                    flag_t[str(issue_id)] = a
+                    elastic_id_list["issue"].append(flag_t)
+        a = json.dumps(elastic_id_list)
+        return a
+
     def process_termination_timer(self, api_key_elastic, elastic_url, api_key_vt, id_elastic_list):
         # Configuration
         ELASTICSEARCH_URL = elastic_url
@@ -2427,7 +2456,6 @@ class JiraAnomal(AppBase):
             b[key] = jira_description
             jira_desc["issues"].append(b)
         return(jira_desc)
-
 
 if __name__ == "__main__":
     JiraAnomal.run()
