@@ -2139,7 +2139,6 @@ class JiraAnomal(AppBase):
         jira_desc = {}
         jira_desc['issues'] = [] 
 
-        #iss = json.loads(id_elastic_list)
         issue_json = id_elastic_list["issue"] 
         for id_elastic in issue_json:
             proc_name = ''
@@ -2384,12 +2383,12 @@ class JiraAnomal(AppBase):
                 }
             }
             response = requests.post(f"{ELASTICSEARCH_URL}/{win_index}/_search",headers=HEADERS,json=file_query)
+            VT_KEY = api_key_vt
             if response.status_code == 200:
                 hits = response.json()["hits"]["hits"]
                 file_hash = hits[0]['_source']['file']['hash']['sha256']
                 jira_description += f"- *File Name:* {file_name}\n"
                 jira_description += f"- *Hash:* {file_hash}\n"
-            VT_KEY = api_key_vt
             headers = {
                 'x-apikey': VT_KEY,
             }
@@ -2399,24 +2398,28 @@ class JiraAnomal(AppBase):
                     if response.status_code == 200:
                         # Convert response to JSON and print
                         response_data = response.json()
+                        vt_data = response_data['data']['attributes']
+                        #dict_keys(['id', 'type', 'links', 'attributes'])
+                        if 'signature_info' in vt_data.keys():
+                            jira_description += f"- *Signature Info from VT for* {fil_hash}*:* \n"
+                            if 'verified' in vt_data['signature_info'].keys():
+                                jira_description += f"-- *Verified:* {str(vt_data['signature_info']['verified'])} \n"
+                            if 'signers' in vt_data['signature_info'].keys():
+                                jira_description += f"-- *Signers:* {str(vt_data['signature_info']['signers'])} \n"
+                        if vt_data['last_analysis_stats']['malicious'] != 0:
+                            try:
+                                jira_description += f"-- *Threat Name:* {vt_data['popular_threat_classification']['suggested_threat_label']} \n"
+                            except:
+                                i = 0
+                            print(vt_data['last_analysis_stats']['malicious'])
+                            jira_description += f"-- *Number of Vendors marked as Malicious:* {vt_data['last_analysis_stats']['malicious']} \n"
+                        else:
+                            jira_description += "-- *Veredict:* Clean \n"
                     else:
                         print(f"Error: {response.status_code}")
                         print(response.text)
-                    vt_data = response_data['data']['attributes']
-                    #dict_keys(['id', 'type', 'links', 'attributes'])
-                    if 'signature_info' in vt_data.keys():
-                        jira_description += f"- *Signature Info from VT for* {fil_hash}*:* \n"
-                        jira_description += f"-- *Verified:* {str(vt_data['signature_info']['verified'])} \n"
-                        jira_description += f"-- *Signers:* {str(vt_data['signature_info']['signers'])} \n"
-                    if vt_data['last_analysis_stats']['malicious'] != 0:
-                        try:
-                            jira_description += f"-- *Threat Name:* {vt_data['popular_threat_classification']['suggested_threat_label']} \n"
-                        except:
-                            i = 0
-                        print(vt_data['last_analysis_stats']['malicious'])
-                        jira_description += f"-- *Number of Vendors marked as Malicious:* {vt_data['last_analysis_stats']['malicious']} \n"
-                    else:
-                        jira_description += "-- *Veredict:* Clean \n"
+                        jira_description += f"The Hash for {fil_hash} is not present in VT\n"
+                    
             print(jira_description)
             jira_description += '\nShuffle-End\n'
             b = {}
@@ -2424,6 +2427,7 @@ class JiraAnomal(AppBase):
             b[key] = jira_description
             jira_desc["issues"].append(b)
         return(jira_desc)
+
 
 if __name__ == "__main__":
     JiraAnomal.run()
