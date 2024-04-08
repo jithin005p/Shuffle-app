@@ -2139,8 +2139,8 @@ class JiraAnomal(AppBase):
         jira_desc = {}
         jira_desc['issues'] = [] 
 
-        iss = json.loads(id_elastic_list)
-        issue_json = iss["issue"] 
+        #iss = json.loads(id_elastic_list)
+        issue_json = id_elastic_list["issue"] 
         for id_elastic in issue_json:
             proc_name = ''
             file_name = ''
