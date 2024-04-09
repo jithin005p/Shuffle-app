@@ -2450,7 +2450,7 @@ class JiraAnomal(AppBase):
                     else:
                         print(f"Error: {response.status_code}")
                         print(response.text)
-                        jira_description += f"The report for {fil_hash} is not present in VT"
+                        jira_description += f"The report for {fil_hash} is not present in VT\n"
                     
             print(jira_description)
             jira_description += '\nShuffle-End\n'
