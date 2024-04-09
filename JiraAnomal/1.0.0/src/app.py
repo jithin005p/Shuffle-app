@@ -2168,12 +2168,12 @@ class JiraAnomal(AppBase):
         jira_desc = {}
         jira_desc['issues'] = [] 
 
-
         issue_json = id_elastic_list["issue"] 
         for id_elastic in issue_json:
             proc_name = []
             file_name = []
             host_name = ''
+            a = []
             jira_description = f""
             (key, ids), = id_elastic.items()
             for id in ids:
@@ -2337,6 +2337,7 @@ class JiraAnomal(AppBase):
                     hits = response.json()["hits"]["hits"]
                     if proc_name != "cleanmgr.exe" and len(hits) >= 1:
                         proc_hash[proc] = hits[0]['_source']['process']['hash']['sha256']
+                        a.append(hits[0]['_source']['process']['hash']['sha256'])
                         jira_description += f"- *Process Name:* {proc}\n"
                         jira_description += f"- *Hash:* {proc_hash[proc]}\n"
                     else:
@@ -2418,13 +2419,14 @@ class JiraAnomal(AppBase):
                 if response.status_code == 200:
                     hits = response.json()["hits"]["hits"]
                     file_hash[fil] = hits[0]['_source']['file']['hash']['sha256']
+                    a.append(hits[0]['_source']['file']['hash']['sha256'])
                     jira_description += f"- *File Name:* {fil}\n"
                     jira_description += f"- *Hash:* {file_hash[fil]}\n"
             VT_KEY = api_key_vt
             headers = {
                 'x-apikey': VT_KEY,
             }
-            for fil_hash in [file_hash, proc_hash]:
+            for fil_hash in a:
                 if len(fil_hash) > 0:
                     response = requests.get(f'https://www.virustotal.com/api/v3/files/{fil_hash}', headers=headers)
                     if response.status_code == 200:
