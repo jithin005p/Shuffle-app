@@ -2168,10 +2168,11 @@ class JiraAnomal(AppBase):
         jira_desc = {}
         jira_desc['issues'] = [] 
 
+
         issue_json = id_elastic_list["issue"] 
         for id_elastic in issue_json:
-            proc_name = ''
-            file_name = ''
+            proc_name = []
+            file_name = []
             host_name = ''
             jira_description = f""
             (key, ids), = id_elastic.items()
@@ -2245,8 +2246,8 @@ class JiraAnomal(AppBase):
                     hits = response.json()["hits"]["hits"]
                     if hits:
                         if 'process' in hits[0]['_source'].keys() and 'file' in hits[0]['_source'].keys():
-                            proc_name = hits[0]['_source']['process']['name']
-                            file_name = hits[0]['_source']['file']['name']
+                            proc_name.append(hits[0]['_source']['process']['name'])
+                            file_name.append(hits[0]['_source']['file']['name'])
                         else:
                             if host_name == '':
                                 host_name= hits[0]['_source']['host']['hostname']
@@ -2257,13 +2258,95 @@ class JiraAnomal(AppBase):
             ti = proc_start.rstrip('Z')
             s_start = datetime.fromisoformat(ti)
             proc_start = (s_start - timedelta(days=30)).isoformat()
-            print(proc_start)
+
             proc_end = (s_start + timedelta(hours=1)).isoformat()
             win_index = ".ds-logs-windows.sysmon_operational-default*"
-            print(host_name)
-            print(proc_name)
-            print(file_name)
-            proc_query = {
+
+            proc_hash = {}
+            for proc in proc_name:
+                proc_query = {
+                        "query": {
+                            "bool": {
+                            "must": [],
+                            "filter": [
+                                {
+                                "bool": {
+                                    "filter": [
+                                    {
+                                        "bool": {
+                                        "should": [
+                                            {
+                                            "term": {
+                                                "host.name": {
+                                                "value": host_name
+                                                }
+                                            }
+                                            }
+                                        ],
+                                        "minimum_should_match": 1
+                                        }
+                                    },
+                                    {
+                                        "bool": {
+                                        "should": [
+                                            {
+                                            "term": {
+                                                "process.name": {
+                                                "value": proc
+                                                }
+                                            }
+                                            }
+                                        ],
+                                        "minimum_should_match": 1
+                                        }
+                                    },
+                                    {
+                                        "bool": {
+                                        "should": [
+                                            {
+                                            "term": {
+                                                "event.action": {
+                                                "value": "Process creation"
+                                                }
+                                            }
+                                            }
+                                        ],
+                                        "minimum_should_match": 1
+                                        }
+                                    }
+                                    ]
+                                }
+                                },
+                                {
+                                "range": {
+                                    "@timestamp": {
+                                    "format": "strict_date_optional_time",
+                                    "gte": proc_start,
+                                    "lte": proc_end
+                                    }
+                                }
+                                }
+                            ],
+                            "should": [],
+                            "must_not": []
+                            }
+                        }
+                }
+                response = requests.post(f"{ELASTICSEARCH_URL}/{win_index}/_search",headers=HEADERS,json=proc_query)
+                if response.status_code == 200:
+                    hits = response.json()["hits"]["hits"]
+                    if proc_name != "cleanmgr.exe" and len(hits) >= 1:
+                        proc_hash[proc] = hits[0]['_source']['process']['hash']['sha256']
+                        jira_description += f"- *Process Name:* {proc}\n"
+                        jira_description += f"- *Hash:* {proc_hash[proc]}\n"
+                    else:
+                        proc_hash[proc] = ''
+                        jira_description += f"- *Process Name:* {proc}'s hash couldnt retrieve from elastic\n"
+                        #VT resulkt for this hash
+                #query for file , file_hash and VT result of it
+            file_hash = {}
+            for fil in file_name:
+                file_query = {
                     "query": {
                         "bool": {
                         "must": [],
@@ -2290,8 +2373,8 @@ class JiraAnomal(AppBase):
                                     "should": [
                                         {
                                         "term": {
-                                            "process.name": {
-                                            "value": proc_name
+                                            "event.action": {
+                                            "value": "FileDeleteDetected (File Delete logged)"
                                             }
                                         }
                                         }
@@ -2304,8 +2387,8 @@ class JiraAnomal(AppBase):
                                     "should": [
                                         {
                                         "term": {
-                                            "event.action": {
-                                            "value": "Process creation"
+                                            "file.name": {
+                                            "value": fil
                                             }
                                         }
                                         }
@@ -2330,94 +2413,14 @@ class JiraAnomal(AppBase):
                         "must_not": []
                         }
                     }
-            }
-            response = requests.post(f"{ELASTICSEARCH_URL}/{win_index}/_search",headers=HEADERS,json=proc_query)
-            if response.status_code == 200:
-                hits = response.json()["hits"]["hits"]
-                if proc_name != "cleanmgr.exe" and len(hits) >= 1:
-                    proc_hash = hits[0]['_source']['process']['hash']['sha256']
-                    jira_description += f"- *Process Name:* {proc_name}\n"
-                    jira_description += f"- *Hash:* {proc_hash}\n"
-                else:
-                    proc_hash = ''
-                    jira_description += f"- *Process Name:* {proc_name}'s hash couldnt retrieve from elastic\n"
-                    #VT resulkt for this hash
-            #query for file , file_hash and VT result of it
-            file_query = {
-                "query": {
-                    "bool": {
-                    "must": [],
-                    "filter": [
-                        {
-                        "bool": {
-                            "filter": [
-                            {
-                                "bool": {
-                                "should": [
-                                    {
-                                    "term": {
-                                        "host.name": {
-                                        "value": host_name
-                                        }
-                                    }
-                                    }
-                                ],
-                                "minimum_should_match": 1
-                                }
-                            },
-                            {
-                                "bool": {
-                                "should": [
-                                    {
-                                    "term": {
-                                        "event.action": {
-                                        "value": "FileDeleteDetected (File Delete logged)"
-                                        }
-                                    }
-                                    }
-                                ],
-                                "minimum_should_match": 1
-                                }
-                            },
-                            {
-                                "bool": {
-                                "should": [
-                                    {
-                                    "term": {
-                                        "file.name": {
-                                        "value": file_name
-                                        }
-                                    }
-                                    }
-                                ],
-                                "minimum_should_match": 1
-                                }
-                            }
-                            ]
-                        }
-                        },
-                        {
-                        "range": {
-                            "@timestamp": {
-                            "format": "strict_date_optional_time",
-                            "gte": proc_start,
-                            "lte": proc_end
-                            }
-                        }
-                        }
-                    ],
-                    "should": [],
-                    "must_not": []
-                    }
                 }
-            }
-            response = requests.post(f"{ELASTICSEARCH_URL}/{win_index}/_search",headers=HEADERS,json=file_query)
+                response = requests.post(f"{ELASTICSEARCH_URL}/{win_index}/_search",headers=HEADERS,json=file_query)
+                if response.status_code == 200:
+                    hits = response.json()["hits"]["hits"]
+                    file_hash[fil] = hits[0]['_source']['file']['hash']['sha256']
+                    jira_description += f"- *File Name:* {fil}\n"
+                    jira_description += f"- *Hash:* {file_hash[fil]}\n"
             VT_KEY = api_key_vt
-            if response.status_code == 200:
-                hits = response.json()["hits"]["hits"]
-                file_hash = hits[0]['_source']['file']['hash']['sha256']
-                jira_description += f"- *File Name:* {file_name}\n"
-                jira_description += f"- *Hash:* {file_hash}\n"
             headers = {
                 'x-apikey': VT_KEY,
             }
@@ -2447,7 +2450,7 @@ class JiraAnomal(AppBase):
                     else:
                         print(f"Error: {response.status_code}")
                         print(response.text)
-                        jira_description += f"The Hash for {fil_hash} is not present in VT\n"
+                        jira_description += f"The report for {fil_hash} is not present in VT"
                     
             print(jira_description)
             jira_description += '\nShuffle-End\n'
@@ -2456,6 +2459,6 @@ class JiraAnomal(AppBase):
             b[key] = jira_description
             jira_desc["issues"].append(b)
         return(jira_desc)
-
+    
 if __name__ == "__main__":
     JiraAnomal.run()
