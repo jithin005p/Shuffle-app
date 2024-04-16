@@ -1885,6 +1885,7 @@ class JiraAnomal(AppBase):
             hostname = ""
             user = ""
             ip = ""
+            INDEX_NAME = ".alerts-security.alerts-default"
             response = requests.post(f"{ELASTICSEARCH_URL}/{INDEX_NAME}/_search",headers=HEADERS,json=query)
             if response.status_code == 200:
                 hits = response.json()["hits"]["hits"]
@@ -2435,7 +2436,7 @@ class JiraAnomal(AppBase):
                         vt_data = response_data['data']['attributes']
                         #dict_keys(['id', 'type', 'links', 'attributes'])
                         if 'signature_info' in vt_data.keys():
-                            jira_description += f"- *Signature Info from VT for* {fil_hash}*:* \n"
+                            jira_description += f"- *Signature Info from VT for* {fil_hash}: \n"
                             if 'verified' in vt_data['signature_info'].keys():
                                 jira_description += f"-- *Verified:* {str(vt_data['signature_info']['verified'])} \n"
                             if 'signers' in vt_data['signature_info'].keys():
