@@ -2249,9 +2249,9 @@ class JiraAnomal(AppBase):
                         if 'process' in hits[0]['_source'].keys() and 'file' in hits[0]['_source'].keys():
                             proc_name.append(hits[0]['_source']['process']['name'])
                             file_name.append(hits[0]['_source']['file']['name'])
-                        else:
                             if host_name == '':
-                                host_name= hits[0]['_source']['host']['hostname']
+                                host_name= hits[0]['_source']['host']['name']
+                        else:
                                 proc_start = hits[0]['_source']['kibana.alert.original_time'] 
                 else:
                     print("Error Fetching the issue")
@@ -2376,7 +2376,7 @@ class JiraAnomal(AppBase):
                                         {
                                         "term": {
                                             "event.action": {
-                                            "value": "FileDeleteDetected (File Delete logged)"
+                                            "value": "Image loaded"
                                             }
                                         }
                                         }
@@ -2419,10 +2419,11 @@ class JiraAnomal(AppBase):
                 response = requests.post(f"{ELASTICSEARCH_URL}/{win_index}/_search",headers=HEADERS,json=file_query)
                 if response.status_code == 200:
                     hits = response.json()["hits"]["hits"]
-                    file_hash[fil] = hits[0]['_source']['file']['hash']['sha256']
-                    a.append(hits[0]['_source']['file']['hash']['sha256'])
-                    jira_description += f"- *File Name:* {fil}\n"
-                    jira_description += f"- *Hash:* {file_hash[fil]}\n"
+                    if len(hits) >= 1:
+                        file_hash[fil] = hits[0]['_source']['file']['hash']['sha256']
+                        a.append(hits[0]['_source']['file']['hash']['sha256'])
+                        jira_description += f"- *File Name:* {fil}\n"
+                        jira_description += f"- *Hash:* {file_hash[fil]}\n"
             VT_KEY = api_key_vt
             headers = {
                 'x-apikey': VT_KEY,
