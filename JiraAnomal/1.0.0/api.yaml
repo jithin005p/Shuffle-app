@@ -293,7 +293,7 @@ actions:
     returns:
       schema:
         type: string
-  - name: anomalous_windowsn_timer
+  - name: anomalous_windows_timer
     description: Takes care of the WIN - Anomalous Windows Process Creation
     parameters:
       - name: id_elastic_list
