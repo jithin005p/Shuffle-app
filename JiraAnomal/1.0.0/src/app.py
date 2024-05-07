@@ -2463,6 +2463,336 @@ class JiraAnomal(AppBase):
             b[key] = jira_description
             jira_desc["issues"].append(b)
         return(jira_desc)
-    
+
+    def anomalous_windows_timer(self, api_key_elastic, elastic_url, api_key_vt, id_elastic_list):
+        # Configuration
+        ELASTICSEARCH_URL = elastic_url
+        API_KEY = api_key_elastic
+
+        # Add headers for the elastic search access
+        HEADERS = {
+            "Authorization": f"ApiKey {API_KEY}",
+            "Content-Type": "application/json"
+        }
+
+        # Define a date range for the alerts needs to be checked
+        end_date = datetime.now(timezone.utc)
+        start_date = end_date - timedelta(days=30)
+
+        jira_desc = {}
+        jira_desc['issues'] = [] 
+
+        issue_json = id_elastic_list["issue"] 
+        for id_elastic in issue_json:
+            proc_name = []
+            parent_name = []
+            host_name = ''
+            user_name = ''
+            a = []
+            jira_description = f""
+            (key, ids), = id_elastic.items()
+            for id in ids:
+                query = {
+                    "size": 10,
+                    "from": 0,
+                    "query": {
+                    "bool": {
+                        "filter": [
+                        {
+                            "bool": {
+                            "must": [],
+                            "filter": [
+                                {
+                                "bool": {
+                                    "should": [
+                                    {
+                                        "match_phrase": {
+                                        "_id": id
+                                        }
+                                    }
+                                    ],
+                                    "minimum_should_match": 1
+                                }
+                                },
+                                {
+                                "bool": {
+                                    "should": [
+                                    {
+                                        "match_phrase": {
+                                        "kibana.alert.workflow_status": "acknowledged"
+                                        }
+                                    },
+                                    {
+                                        "match_phrase": {
+                                        "kibana.alert.workflow_status": "open"
+                                        }
+                                    },
+                                    {
+                                        "match_phrase": {
+                                        "kibana.alert.workflow_status": "closed"
+                                        }
+                                    }
+                                    ],
+                                    "minimum_should_match": 1
+                                }
+                                },
+                                {
+                                "range": {
+                                    "@timestamp": {
+                                    "gte": start_date.isoformat(),
+                                    "lt": end_date.isoformat()
+                                    }
+                                }
+                                }
+                            ],
+                            "should": [],
+                            "must_not": []
+                            }
+                        }
+                        ]
+                    }
+                    }
+                }
+                source_ip = ''
+                spray_start = ''
+                INDEX_NAME = ".internal.alerts-security.alerts-default*"  # Replace with your actual index pattern for security alerts
+                response = requests.post(f"{ELASTICSEARCH_URL}/{INDEX_NAME}/_search",headers=HEADERS,json=query)
+                if response.status_code == 200:
+                    hits = response.json()["hits"]["hits"]
+                    if hits:
+                        if 'process' in hits[0]['_source'].keys():
+                            proc_name.append(hits[0]['_source']['process']['name'][0])
+                            user_name = hits[0]['_source']['user']['name'][0]
+                            parent_name.append(hits[0]['_source']['process.parent.name'][0])
+                            if host_name == '':
+                                host_name= hits[0]['_source']['host']['name'][0]
+                            proc_start = hits[0]['_source']['kibana.alert.original_time'] 
+                else:
+                    print("Error Fetching the issue")
+                    break
+            ti = proc_start.rstrip('Z')
+            s_start = datetime.fromisoformat(ti)
+            proc_start = (s_start - timedelta(days=30)).isoformat()
+            #print(proc_start)
+            proc_end = (s_start + timedelta(hours=1)).isoformat()
+            win_index = ".ds-logs-windows.sysmon_operational-default*"
+            #print(host_name)
+            #print(proc_name)
+            #print(parent_name)
+            jira_description += f"- *User Name:* {user_name}\n"
+            proc_hash = {}
+            for proc in proc_name:
+                proc_query = {
+                        "query": {
+                            "bool": {
+                            "must": [],
+                            "filter": [
+                                {
+                                "bool": {
+                                    "filter": [
+                                    {
+                                        "bool": {
+                                        "should": [
+                                            {
+                                            "term": {
+                                                "host.name": {
+                                                "value": host_name
+                                                }
+                                            }
+                                            }
+                                        ],
+                                        "minimum_should_match": 1
+                                        }
+                                    },
+                                    {
+                                        "bool": {
+                                        "should": [
+                                            {
+                                            "term": {
+                                                "process.name": {
+                                                "value": proc
+                                                }
+                                            }
+                                            }
+                                        ],
+                                        "minimum_should_match": 1
+                                        }
+                                    },
+                                    {
+                                        "bool": {
+                                        "should": [
+                                            {
+                                            "term": {
+                                                "event.action": {
+                                                "value": "Process creation"
+                                                }
+                                            }
+                                            }
+                                        ],
+                                        "minimum_should_match": 1
+                                        }
+                                    }
+                                    ]
+                                }
+                                },
+                                {
+                                "range": {
+                                    "@timestamp": {
+                                    "format": "strict_date_optional_time",
+                                    "gte": proc_start,
+                                    "lte": proc_end
+                                    }
+                                }
+                                }
+                            ],
+                            "should": [],
+                            "must_not": []
+                            }
+                        }
+                } 
+                response = requests.post(f"{ELASTICSEARCH_URL}/{win_index}/_search",headers=HEADERS,json=proc_query)
+                if response.status_code == 200:
+                    hits = response.json()["hits"]["hits"]
+                    if len(hits) >= 1:
+                        # Use a regular expression to find the 'Image' line and extract the path
+                        match = re.search(r'Image:\s*(.*)', hits[0]['_source']['message'])
+                        if match:
+                            image_path = match.group(1)  # The captured path following 'Image: '
+                        proc_hash[proc] = hits[0]['_source']['process']['hash']['sha256']
+                        a.append(hits[0]['_source']['process']['hash']['sha256'])
+                        jira_description += f"- *Process Name:* {proc}\n"
+                        jira_description += f"- *Hash:* {proc_hash[proc]}\n"
+                        jira_description += f"- *Process Directory:* {image_path}\n"
+                    else:
+                        proc_hash[proc] = ''
+                        jira_description += f"- *Process Name:* {proc}'s hash couldnt retrieve from elastic\n"
+                        #VT resulkt for this hash
+                #query for file , file_hash and VT result of it
+            parent_hash = {}
+            for par in parent_name:
+                parent_query = {
+                    "query": {
+                        "bool": {
+                        "must": [],
+                        "filter": [
+                            {
+                            "bool": {
+                                "filter": [
+                                {
+                                    "bool": {
+                                    "should": [
+                                        {
+                                        "term": {
+                                            "host.name": {
+                                            "value": host_name
+                                            }
+                                        }
+                                        }
+                                    ],
+                                    "minimum_should_match": 1
+                                    }
+                                },
+                                {
+                                    "bool": {
+                                    "should": [
+                                        {
+                                        "term": {
+                                            "event.action": {
+                                            "value": "Process creation"
+                                            }
+                                        }
+                                        }
+                                    ],
+                                    "minimum_should_match": 1
+                                    }
+                                },
+                                {
+                                    "bool": {
+                                    "should": [
+                                        {
+                                        "term": {
+                                            "process.name": {
+                                            "value": par
+                                            }
+                                        }
+                                        }
+                                    ],
+                                    "minimum_should_match": 1
+                                    }
+                                }
+                                ]
+                            }
+                            },
+                            {
+                            "range": {
+                                "@timestamp": {
+                                "format": "strict_date_optional_time",
+                                "gte": proc_start,
+                                "lte": proc_end
+                                }
+                            }
+                            }
+                        ],
+                        "should": [],
+                        "must_not": []
+                        }
+                    }
+                }
+                #win_index = ".internal.alerts-security.alerts-default*"
+                response = requests.post(f"{ELASTICSEARCH_URL}/{win_index}/_search",headers=HEADERS,json=parent_query)
+                if response.status_code == 200:
+                    hits = response.json()["hits"]["hits"]
+                    if len(hits) >= 1:
+                        match = re.search(r'Image:\s*(.*)', hits[0]['_source']['message'])
+                        if match:
+                            image_path = match.group(1)  # The captured path following 'Image: '
+                        parent_hash[par] = hits[0]['_source']['process']['hash']['sha256']
+                        a.append(hits[0]['_source']['process']['hash']['sha256'])
+                        jira_description += f"- *Parent Process Name:* {par}\n"
+                        jira_description += f"- *Hash:* {parent_hash[par]}\n"
+                        jira_description += f"- *Parent Process Directory:* {image_path}\n"
+                    else:
+                        proc_hash[proc] = ''
+                        jira_description += f"- *Process Name:* {par}'s hash couldnt retrieve from elastic\n"
+            headers = {
+                'x-apikey': VT_KEY,
+            }
+            for fil_hash in a:
+                if len(fil_hash) > 0:
+                    response = requests.get(f'https://www.virustotal.com/api/v3/files/{fil_hash}', headers=headers)
+                    if response.status_code == 200:
+                        # Convert response to JSON and print
+                        response_data = response.json()
+                        vt_data = response_data['data']['attributes']
+                        #dict_keys(['id', 'type', 'links', 'attributes'])
+                        if 'signature_info' in vt_data.keys():
+                            jira_description += f"- *Signature Info from VT for* {fil_hash}*:* \n"
+                            if 'verified' in vt_data['signature_info'].keys():
+                                jira_description += f"-- *Verified:* {str(vt_data['signature_info']['verified'])} \n"
+                            if 'signers' in vt_data['signature_info'].keys():
+                                jira_description += f"-- *Signers:* {str(vt_data['signature_info']['signers'])} \n"
+                        if vt_data['last_analysis_stats']['malicious'] != 0:
+                            try:
+                                jira_description += f"-- *Threat Name:* {vt_data['popular_threat_classification']['suggested_threat_label']} \n"
+                            except:
+                                i = 0
+                            print(vt_data['last_analysis_stats']['malicious'])
+                            jira_description += f"-- *Number of Vendors marked as Malicious:* {vt_data['last_analysis_stats']['malicious']} \n"
+                        else:
+                            jira_description += "-- *Veredict:* Clean \n"
+                    else:
+                        print(f"Error: {response.status_code}")
+                        print(response.text)
+                        jira_description += f"The report for {fil_hash} is not present in VT\n"
+                    
+            #print(jira_description)
+            jira_description += '\nShuffle-End\n'
+            b = {}
+            #key = next((k for k, v in id_elastic.items() if id in v), None)
+            b[key] = jira_description
+            jira_desc["issues"].append(b)
+        return(jira_desc)
+
+
 if __name__ == "__main__":
     JiraAnomal.run()

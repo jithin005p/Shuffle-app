@@ -293,3 +293,16 @@ actions:
     returns:
       schema:
         type: string
+  - name: anomalous_windowsn_timer
+    description: Takes care of the WIN - Anomalous Windows Process Creation
+    parameters:
+      - name: id_elastic_list
+        description: id nmentioned in the Jira ticket
+        example: "This"
+        required: true
+        multiline: false
+        schema:
+          type: string
+    returns:
+      schema:
+        type: string 
