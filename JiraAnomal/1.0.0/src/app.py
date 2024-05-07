@@ -2579,6 +2579,7 @@ class JiraAnomal(AppBase):
             #print(host_name)
             #print(proc_name)
             #print(parent_name)
+            jira_description += f"- *Host Name:* {host_name}"
             jira_description += f"- *User Name:* {user_name}\n"
             proc_hash = {}
             for proc in proc_name:
