@@ -2754,6 +2754,7 @@ class JiraAnomal(AppBase):
                     else:
                         proc_hash[proc] = ''
                         jira_description += f"- *Process Name:* {par}'s hash couldnt retrieve from elastic\n"
+            VT_KEY = api_key_vt
             headers = {
                 'x-apikey': VT_KEY,
             }
