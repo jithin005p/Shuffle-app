@@ -2174,6 +2174,7 @@ class JiraAnomal(AppBase):
             proc_name = []
             file_name = []
             host_name = ''
+            user_name = ''
             a = []
             jira_description = f""
             (key, ids), = id_elastic.items()
@@ -2249,6 +2250,7 @@ class JiraAnomal(AppBase):
                         if 'process' in hits[0]['_source'].keys() and 'file' in hits[0]['_source'].keys():
                             proc_name.append(hits[0]['_source']['process']['name'])
                             file_name.append(hits[0]['_source']['file']['name'])
+                            user_name = hits[0]['_source']['user']['name']
                             if host_name == '':
                                 host_name= hits[0]['_source']['host']['name']
                         else:
@@ -2262,7 +2264,7 @@ class JiraAnomal(AppBase):
 
             proc_end = (s_start + timedelta(hours=1)).isoformat()
             win_index = ".ds-logs-windows.sysmon_operational-default*"
-
+            jira_description += f"- *User Name:* {user_name}\n"
             proc_hash = {}
             for proc in proc_name:
                 proc_query = {
@@ -2579,7 +2581,7 @@ class JiraAnomal(AppBase):
             #print(host_name)
             #print(proc_name)
             #print(parent_name)
-            jira_description += f"- *Host Name:* {host_name}"
+            jira_description += f"- *Host Name:* {host_name}\n"
             jira_description += f"- *User Name:* {user_name}\n"
             proc_hash = {}
             for proc in proc_name:
@@ -2795,6 +2797,33 @@ class JiraAnomal(AppBase):
             jira_desc["issues"].append(b)
         return(jira_desc)
 
+    def anomal_get_elastic_id_timer(self, username, password, issue_id_list):
+        jira = JIRA(
+        server="https://anomal.atlassian.net",
+        basic_auth=(username,password)
+        )
+        iss = issue_id_list.split(',')
+        elastic_id_list = {}
+        elastic_id_list["issue"] = [] 
+        for issue_id in iss:
+            flag_t = {}
+            if(len(issue_id)) > 0:
+                issue = jira.issue(issue_id)
+                flag = 0
+                id = ''
+                for line in issue.fields.description.split("\n"):
+                    # Replace the regex with your specific hash pattern
+                    matches = re.findall(r'\* *Alert ID\*: ([\w\d]+)', line)
+                    if matches:
+                        flag = 1
+                        id = matches[0]
+                        break
+                        
+                if flag == 1:
+                    flag_t[issue_id] = id
+                    elastic_id_list["issue"].append(flag_t)
+        a = json.dumps(elastic_id_list)
+        return (a)
 
 if __name__ == "__main__":
     JiraAnomal.run()

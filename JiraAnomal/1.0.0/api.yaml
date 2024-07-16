@@ -306,3 +306,16 @@ actions:
     returns:
       schema:
         type: string 
+  - name: anomal_get_elastic_id_timer
+    description: Get Elastic ID from JIRA description for the specified ID
+    parameters:
+      - name: issue_id_list
+        description: The JSON to handle
+        example: "This"
+        required: true
+        multiline: false
+        schema:
+          type: string
+    returns:
+      schema:
+        type: string
