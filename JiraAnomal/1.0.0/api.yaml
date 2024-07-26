@@ -319,3 +319,16 @@ actions:
     returns:
       schema:
         type: string
+  - name: persistence_autostart_execution_timer
+    description: Takes care of the Persistence Boot or Logon Autostart Execution
+    parameters:
+      - name: id_elastic_list
+        description: id nmentioned in the Jira ticket
+        example: "This"
+        required: true
+        multiline: false
+        schema:
+          type: string
+    returns:
+      schema:
+        type: string 
