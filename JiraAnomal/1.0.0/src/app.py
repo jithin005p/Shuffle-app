@@ -2843,8 +2843,8 @@ class JiraAnomal(AppBase):
         jira_desc = {}
         jira_desc['issues'] = [] 
 
-        iss = json.loads(id_list)
-        issue_json = iss["issue"] 
+        
+        issue_json = id_list["issue"] 
         
         for id_elastic in issue_json:
             proc_fullpath = ''
