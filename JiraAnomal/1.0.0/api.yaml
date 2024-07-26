@@ -322,7 +322,7 @@ actions:
   - name: persistence_autostart_execution_timer
     description: Takes care of the Persistence Boot or Logon Autostart Execution
     parameters:
-      - name: id_elastic_list
+      - name: id_list
         description: id nmentioned in the Jira ticket
         example: "This"
         required: true
