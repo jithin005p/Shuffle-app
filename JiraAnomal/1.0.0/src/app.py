@@ -2825,7 +2825,7 @@ class JiraAnomal(AppBase):
         a = json.dumps(elastic_id_list)
         return (a)
 
-    def persistence_autostart_execution_timer (api_key_elastic, elastic_url, id_list):
+    def persistence_autostart_execution_timer (self, api_key_elastic, elastic_url, api_key_vt, id_list):
         # Configuration
         ELASTICSEARCH_URL = elastic_url
         API_KEY = api_key_elastic
@@ -3034,6 +3034,7 @@ class JiraAnomal(AppBase):
                     #VT resulkt for this hash
             #query for file , file_hash and VT result of it
             #win_index = ".internal.alerts-security.alerts-default*"
+            VT_KEY = api_key_vt
             headers = {
                 'x-apikey': VT_KEY,
             }
