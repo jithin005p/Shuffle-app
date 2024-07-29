@@ -3082,6 +3082,474 @@ class JiraAnomal(AppBase):
             jira_desc["issues"].append(b)
         return(jira_desc)
 
+    def anomal_bruteforce_timer(self, api_key_elastic, api_key_abuse, api_key_grey, elastic_url, id_elastic_list):
+        # Configuration
+        ELASTICSEARCH_URL = elastic_url
+        INDEX_NAME = ".internal.alerts-security.alerts-default*"  # Replace with your actual index pattern for security alerts
+        API_KEY = api_key_elastic
+        API_KEY_ABUSE = api_key_abuse
+        API_KEY_GREY = api_key_grey
+
+        ip_rep_abuse = {}
+        ip_rep_grey = {}
+
+        # Add headers for the elastic search access
+        HEADERS = {
+            "Authorization": f"ApiKey {API_KEY}",
+            "Content-Type": "application/json"
+        }
+
+        number_of_days = 5
+        number_of_hours = 5
+
+        # Define a date range for the alerts needs to be checked
+        end_date = datetime.now(timezone.utc)
+        start_date = end_date - timedelta(days=30)
+
+        jira_desc = {}
+        jira_desc['issues'] = [] 
+
+
+        #iss = json.loads(id_elastic_list)
+        issue_json = id_elastic_list["issue"] 
+        for id_elastic in issue_json:
+            id = next(iter(id_elastic.values()))
+            print(id)
+
+            SIZE = 100
+
+            query = {
+                "size": 10,
+                "from": 0,
+                "query": {
+                "bool": {
+                    "filter": [
+                    {
+                        "bool": {
+                        "must": [],
+                        "filter": [
+                            {
+                            "bool": {
+                                "should": [
+                                {
+                                    "match_phrase": {
+                                    "_id": id[0]
+                                    }
+                                }
+                                ],
+                                "minimum_should_match": 1
+                            }
+                            },
+                            {
+                            "bool": {
+                                "should": [
+                                {
+                                    "match_phrase": {
+                                    "kibana.alert.workflow_status": "acknowledged"
+                                    }
+                                },
+                                {
+                                    "match_phrase": {
+                                    "kibana.alert.workflow_status": "open"
+                                    }
+                                },
+                                {
+                                    "match_phrase": {
+                                    "kibana.alert.workflow_status": "closed"
+                                    }
+                                }
+                                ],
+                                "minimum_should_match": 1
+                            }
+                            },
+                            {
+                            "range": {
+                                "@timestamp": {
+                                "gte": start_date.isoformat(),
+                                "lt": end_date.isoformat()
+                                }
+                            }
+                            }
+                        ],
+                        "should": [],
+                        "must_not": []
+                        }
+                    }
+                    ]
+                }
+                }
+            }
+            jira_description = f""
+            user_name = "" 
+            response = requests.post(f"{ELASTICSEARCH_URL}/{INDEX_NAME}/_search",headers=HEADERS,json=query)
+            print(response.status_code)
+            if response.status_code == 200:
+                if len(response.json()["hits"]["hits"]) >= 1:
+                    hits = response.json()["hits"]["hits"][0]["_source"]
+                if hits:    
+                    #print(hit["_source"]["kibana.alert.original_time"])
+                    user_name = hits["user.id"]
+                    org_time_str = hits["kibana.alert.original_time"]
+                    jira_description += f"- *User Name*: {user_name} \n"
+                    # Convert the string to a datetime object
+                    org_time = datetime.fromisoformat(org_time_str.rstrip("Z"))
+                    org_start_time = org_time - timedelta(days=3)
+                    org_time = org_time + timedelta(hours=1)
+                    org_time_str = org_time.isoformat() + "Z"
+                    org_start_time_str = org_start_time.isoformat() + "Z"
+                    #print(org_start_time_str)
+                    #print(org_time_str)
+
+                    #Writing a Query for getting the activity of the user in the timeline mentioned above.
+                    query_user = {
+                        "query": {
+                            "bool": {
+                                "filter": [
+                                    {
+                                        "range": {
+                                            "@timestamp": {
+                                                "gte": org_start_time_str,
+                                                "lte": org_time_str
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "bool": {
+                                            "filter": [
+                                                {
+                                                    "bool": {
+                                                        "should": [
+                                                            {
+                                                                "term": {
+                                                                    "user.id": {
+                                                                        "value": user_name
+                                                                    }
+                                                                }
+                                                            }
+                                                        ],
+                                                        "minimum_should_match": 1
+                                                    }
+                                                },
+                                                {
+                                                    "bool": {
+                                                        "should": [
+                                                            {
+                                                                "term": {
+                                                                    "event.action": {
+                                                                        "value": "UserLoggedIn"
+                                                                    }
+                                                                }
+                                                            }
+                                                        ],
+                                                        "minimum_should_match": 1
+                                                    }
+                                                }
+                                            ]
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    }
+
+                    #This is the index that contain the logs for bruteforce attack to a Microsoft 365 User
+                    INDEX_NAME = ".ds-logs-o365.audit-default*"
+                    usecase = "Successful Login Check"
+                    jira_description += self.parse_logs(ELASTICSEARCH_URL, INDEX_NAME, SIZE, HEADERS, query_user, usecase, API_KEY_ABUSE, API_KEY_GREY)
+                    ###Usecase 2 Password Guessed Correctly###################
+                    query_failed = {
+                        "query": {
+                            "bool": {
+                                "must": [],
+                                "filter": [
+                                    {
+                                    "bool": {
+                                        "filter": [
+                                        {
+                                            "bool": {
+                                            "should": [
+                                                {
+                                                "term": {
+                                                    "user.id": {
+                                                    "value": user_name
+                                                    }
+                                                }
+                                                }
+                                            ],
+                                            "minimum_should_match": 1
+                                            }
+                                        },
+                                        {
+                                            "bool": {
+                                            "should": [
+                                                {
+                                                "term": {
+                                                    "o365.audit.LogonError": {
+                                                    "value": "UserStrongAuthClientAuthNRequiredInterrupt"
+                                                    }
+                                                }
+                                                }
+                                            ],
+                                            "minimum_should_match": 1
+                                            }
+                                        }
+                                        ]
+                                    }
+                                    },
+                                    {
+                                    "range": {
+                                        "@timestamp": {
+                                        "gte": org_start_time_str,
+                                        "lte": org_time_str
+                                        }
+                                    }
+                                    },
+                                    {
+                                    "match_phrase": {
+                                        "event.action": "UserLoginFailed"
+                                    }
+                                    },
+                                    {
+                                    "match_phrase": {
+                                        "o365.audit.LogonError": "UserStrongAuthClientAuthNRequiredInterrupt"
+                                    }
+                                    }
+                                ],
+                                "should": [],
+                                "must_not": []
+                            }
+                        }
+                    }
+                    usecase = "Successful Guess of Password Check"
+                    jira_description += self.parse_logs(ELASTICSEARCH_URL, INDEX_NAME, SIZE, HEADERS, query_failed, usecase, API_KEY_ABUSE, API_KEY_GREY)  
+                    
+            else:
+                print(f"Error: {response.status_code}")
+                print(response.text)
+                jira_description += f"Error: {response.status_code}\n {response.text}" 
+            jira_description += '\nShuffle-End\n'
+            a = {}
+            key = next((k for k, v in id_elastic.items() if v == id), None)
+            a[key] = jira_description
+            jira_desc["issues"].append(a)
+        return(jira_desc)
+
+    def anomal_password_spray_timer(self, api_key_elastic, api_key_abuse, elastic_url, id_elastic_list):
+        # Configuration
+        ELASTICSEARCH_URL = elastic_url
+        API_KEY = api_key_elastic
+
+        # Add headers for the elastic search access
+        HEADERS = {
+            "Authorization": f"ApiKey {API_KEY}",
+            "Content-Type": "application/json"
+        }
+
+        # Define a date range for the alerts needs to be checked
+        end_date = datetime.now(timezone.utc)
+        start_date = end_date - timedelta(days=30)
+
+        jira_desc = {}
+        jira_desc['issues'] = [] 
+
+        #iss = json.loads(id_elastic_list)
+        issue_json = id_elastic_list["issue"] 
+        for id_elastic in issue_json:
+
+            id = id = next(iter(id_elastic.values()))
+            #print(id)
+
+            query = {
+                "size": 10,
+                "from": 0,
+                "query": {
+                "bool": {
+                    "filter": [
+                    {
+                        "bool": {
+                        "must": [],
+                        "filter": [
+                            {
+                            "bool": {
+                                "should": [
+                                {
+                                    "match_phrase": {
+                                    "_id": id[0]
+                                    }
+                                }
+                                ],
+                                "minimum_should_match": 1
+                            }
+                            },
+                            {
+                            "bool": {
+                                "should": [
+                                {
+                                    "match_phrase": {
+                                    "kibana.alert.workflow_status": "acknowledged"
+                                    }
+                                },
+                                {
+                                    "match_phrase": {
+                                    "kibana.alert.workflow_status": "open"
+                                    }
+                                },
+                                {
+                                    "match_phrase": {
+                                    "kibana.alert.workflow_status": "closed"
+                                    }
+                                }
+                                ],
+                                "minimum_should_match": 1
+                            }
+                            },
+                            {
+                            "range": {
+                                "@timestamp": {
+                                "gte": start_date.isoformat(),
+                                "lt": end_date.isoformat()
+                                }
+                            }
+                            }
+                        ],
+                        "should": [],
+                        "must_not": []
+                        }
+                    }
+                    ]
+                }
+                }
+            }
+            jira_description = f""
+            source_ip = ''
+            spray_start = ''
+            INDEX_NAME = ".internal.alerts-security.alerts-default*"  # Replace with your actual index pattern for security alerts
+            response = requests.post(f"{ELASTICSEARCH_URL}/{INDEX_NAME}/_search",headers=HEADERS,json=query)
+            if response.status_code == 200:
+                hits = response.json()["hits"]["hits"]
+                if hits:
+                    #print(hits[0]['_source']['source.ip'])    
+                    #print(hits[0]['_source']['kibana.alert.threshold_result']['from'])
+                    source_ip = hits[0]['_source']['source.ip']
+                    spray_start = hits[0]['_source']['kibana.alert.threshold_result']['from']  
+            else:
+                print("Error Fetching the issue")
+            if len(spray_start) > 0:
+                jira_description += f"- *Source.ip:* {source_ip} \n"
+                jira_description += f"- *Start Time:* {spray_start} \n"
+                ti = spray_start.rstrip('Z')
+                s_start = datetime.fromisoformat(ti)
+                spray_start = (s_start - timedelta(hours=1)).isoformat()
+
+                spray_end = (s_start + timedelta(hours=1)).isoformat()
+
+                spary_inv_query = {
+                    "query": {
+                    "bool": {
+                    "must": [],
+                    "filter": [
+                        {
+                        "bool": {
+                            "should": [
+                            {
+                                "match_phrase": {
+                                "source.ip": source_ip
+                                }
+                            }
+                            ],
+                            "minimum_should_match": 1
+                        }
+                        },
+                        {
+                        "range": {
+                            "@timestamp": {
+                            "gte": spray_start,
+                            "lte": spray_end
+                            }
+                        }
+                        }
+                    ],
+                    "should": [],
+                    "must_not": []
+                    }
+                }
+                }
+                SIZE = 100
+                page = 0
+                INDEX_NAME = ".ds-logs-o365.audit-default*"
+                user_logged_in = []
+                user_failed_login = []
+                user_failure_reason = {}
+                other_action = {}
+                user_fail_count = {}
+                while True:
+                    from_parameter = page * SIZE
+                    resp = requests.post(f"{ELASTICSEARCH_URL}/{INDEX_NAME}/_search?from={from_parameter}&size={SIZE}",headers=HEADERS,json=spary_inv_query)
+                    if resp.status_code == 200:
+                        hi = resp.json()["hits"]["hits"]
+                        for a in hi:
+                            if 'name' in a['_source']['user'].keys():
+                                username_i = a['_source']['user']['name']
+                                if username_i not in user_failure_reason.keys():
+                                    user_failure_reason[username_i] = []
+                                    other_action[username_i] = []
+                                    user_fail_count[username_i] = 0
+                                if "UserLoggedIn" in a['_source']['event']['action']:
+                                    #print(a['_source']['event']['action'])
+                                    if username_i not in user_logged_in and len(user_logged_in) < 5:
+                                        user_logged_in.append(username_i)
+                                elif "UserLoginFailed" in a['_source']['event']['action']:
+                                    #print(a['_source']['o365']['audit']['LogonError'])
+                                    if 'LogonError' in a['_source']['o365']['audit'].keys():
+                                        b = a['_source']['o365']['audit']['LogonError']
+                                        if b not in user_failure_reason[username_i] and len(user_failure_reason[username_i]) < 5:
+                                            user_failure_reason[username_i].append(b)
+                                    else:
+                                        b = ''
+                                    #print(b)
+                                    
+                                    if username_i not in user_failed_login and len(user_failed_login) < 5:
+                                        user_failed_login.append(username_i)
+                                        user_fail_count[username_i] += 1
+                                    #print(user_failure_reason[username_i])
+                                else:
+                                    #print(a['_source']['event']['action'])
+                                    b = a['_source']['event']['action']
+                                    if b not in other_action[username_i] and len(other_action[username_i]) < 5:
+                                        other_action[username_i].append(a['_source']['event']['action'])
+                        if len(hi) < SIZE: #Last page of alert is parsed
+                            break
+                        page += 1
+                    else:
+                        break
+                jira_description += f"- *Users with successful login:* \n"
+                if len(user_logged_in) == 0:
+                    jira_description += f"-- No successful login \n"
+                for ul in user_logged_in:
+                    jira_description += f"-- {ul} \n"
+                jira_description += f"- *Users with failed login:* \n"
+                if len(user_failed_login) == 0:
+                    jira_description += f"-- No failed login \n"
+                for uf in user_failed_login:
+                    jira_description += f"-- {uf} {user_fail_count[uf]} times\n"
+                jira_description += f"- *Users logon failure reason:* \n"
+                for fr in user_failure_reason:
+                    if len(user_failure_reason[fr]) > 0:
+                        jira_description += f"-- {fr}: {user_failure_reason[fr]} \n"
+                jira_description += f"- *Users with other action with same source IP:* \n"
+                for oa in other_action:
+                    jira_description += f"-- {oa}: {other_action[oa]} \n"
+                jira_description += f"- *Source IP reputation (abuse.ch):* \n"
+                jira_description += f"-- {self.check_ip_abuse(source_ip, api_key_abuse)}"
+
+                jira_description += '\nShuffle-End\n'
+                b = {}
+                key = next((k for k, v in id_elastic.items() if v == id), None)
+                b[key] = jira_description
+                jira_desc["issues"].append(b)
+        return(jira_desc)
+
+
 
 if __name__ == "__main__":
     JiraAnomal.run()
