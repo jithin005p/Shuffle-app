@@ -2811,16 +2811,18 @@ class JiraAnomal(AppBase):
                 issue = jira.issue(issue_id)
                 flag = 0
                 id = ''
+                a = []
                 for line in issue.fields.description.split("\n"):
                     # Replace the regex with your specific hash pattern
                     matches = re.findall(r'\* *Alert ID\*: ([\w\d]+)', line)
                     if matches:
                         flag = 1
                         id = matches[0]
+                        a.append(id)
                         break
                         
                 if flag == 1:
-                    flag_t[issue_id] = id
+                    flag_t[issue_id] = a
                     elastic_id_list["issue"].append(flag_t)
         a = json.dumps(elastic_id_list)
         return (a)
@@ -2847,10 +2849,17 @@ class JiraAnomal(AppBase):
         issue_json = id_list["issue"] 
         
         for id_elastic in issue_json:
-            hits = []
-            hit = ''
-            b = {}
+            proc_fullpath = ''
+            parent_name = ''
+            registry_value = ''
+            registry_path = ''
+            host_name = ''
+            user_name = ''
+            proc_start = ''
+            a = []
+            jira_description = f""
             (key, ids), = id_elastic.items()
+            print(ids)
             for id in ids:
                 query = {
                     "size": 10,
@@ -2917,13 +2926,158 @@ class JiraAnomal(AppBase):
                 spray_start = ''
                 INDEX_NAME = ".internal.alerts-security.alerts-default*"  # Replace with your actual index pattern for security alerts
                 response = requests.post(f"{ELASTICSEARCH_URL}/{INDEX_NAME}/_search",headers=HEADERS,json=query)
+                print(response.status_code)
                 if response.status_code == 200:
-                    hits = response.json()["hits"]
-                    hit = id
+                    hits = response.json()["hits"]["hits"]
+                    if hits:
+                        if 'process' in hits[0]['_source'].keys():
+                            proc_fullpath = hits[0]['_source']['process']['executable']
+                        user_name = hits[0]['_source']['user']['name']
+                        registry_path = hits[0]['_source']['registry']['path']
+                        registry_value = hits[0]['_source']['registry']['data']['strings'][0]
+                        host_name= hits[0]['_source']['host']['name']
+                        proc_start = hits[0]['_source']['kibana.alert.original_time'] 
                 else:
-                    hits.append(id)
+                    print("Error Fetching the issue")
                     break
-            b[key] = hit
+            print(proc_start)
+            ti = proc_start.rstrip('Z')
+            s_start = datetime.fromisoformat(ti)
+            proc_start = (s_start - timedelta(hours=1)).isoformat()
+            proc_end = (s_start + timedelta(hours=1)).isoformat()
+            win_index = ".ds-logs-endpoint.events.process-default*"
+            jira_description += f"- *User Name:* {user_name}\n"
+            proc_hash = ''
+            print(proc_fullpath)
+            #path = proc_fullpath.replace("\", "\\")
+            proc_query = {
+                    "query": {
+                        "bool": {
+                        "must": [],
+                        "filter": [
+                            {
+                            "bool": {
+                                "filter": [
+                                {
+                                    "bool": {
+                                    "should": [
+                                        {
+                                        "term": {
+                                            "host.name": {
+                                            "value": host_name
+                                            }
+                                        }
+                                        }
+                                    ],
+                                    "minimum_should_match": 1
+                                    }
+                                },
+                                {
+                                    "bool": {
+                                    "should": [
+                                        {
+                                        "term": {
+                                            "process.executable": {
+                                            "value": proc_fullpath
+                                            }
+                                        }
+                                        }
+                                    ],
+                                    "minimum_should_match": 1
+                                    }
+                                },
+                                {
+                                    "bool": {
+                                    "should": [
+                                        {
+                                        "term": {
+                                            "event.action": {
+                                            "value": "start"
+                                            }
+                                        }
+                                        }
+                                    ],
+                                    "minimum_should_match": 1
+                                    }
+                                }
+                                ]
+                            }
+                            },
+                            {
+                            "range": {
+                                "@timestamp": {
+                                "format": "strict_date_optional_time",
+                                "gte": proc_start,
+                                "lte": proc_end
+                                }
+                            }
+                            }
+                        ],
+                        "should": [],
+                        "must_not": []
+                        }
+                    }
+            } 
+            #print(proc_query)
+            # Add headers for the elastic search access
+            HEADERS = {
+                "Authorization": f"ApiKey {API_KEY}",
+                "Content-Type": "application/json"
+            }
+            response = requests.post(f"{ELASTICSEARCH_URL}/{win_index}/_search",headers=HEADERS,json=proc_query)
+            #print(response.json())
+            if response.status_code == 200:
+                hits = response.json()["hits"]["hits"]
+                if len(hits) >= 1:
+                    parent_name = hits[0]['_source']['process']['parent']['executable']
+                    proc_hash = hits[0]['_source']['process']['hash']['sha256']
+                    a.append(proc_hash)
+                    jira_description += f"- *Process Name:* {hits[0]['_source']['process']['name']}\n"
+                    jira_description += f"- *Hash:* {proc_hash}\n"
+                    jira_description += f"- *Process Directory:* {proc_fullpath}\n"
+                    jira_description += f"- *Parent Process:* {parent_name}\n"
+                    jira_description += f"- *Registry Path:* {registry_path}\n"
+                    jira_description += f"- *Registry Value:* {registry_value}\n"
+                    #VT resulkt for this hash
+            #query for file , file_hash and VT result of it
+            #win_index = ".internal.alerts-security.alerts-default*"
+            headers = {
+                'x-apikey': VT_KEY,
+            }
+            for fil_hash in a:
+                if len(fil_hash) > 0:
+                    response = requests.get(f'https://www.virustotal.com/api/v3/files/{fil_hash}', headers=headers)
+                    print("VT Rersult code:",response.status_code)
+                    if response.status_code == 200:
+                        # Convert response to JSON and print
+                        response_data = response.json()
+                        vt_data = response_data['data']['attributes']
+                        #dict_keys(['id', 'type', 'links', 'attributes'])
+                        if 'signature_info' in vt_data.keys():
+                            jira_description += f"- *Signature Info from VT for* {fil_hash}*:* \n"
+                            if 'verified' in vt_data['signature_info'].keys():
+                                jira_description += f"-- *Verified:* {str(vt_data['signature_info']['verified'])} \n"
+                            if 'signers' in vt_data['signature_info'].keys():
+                                jira_description += f"-- *Signers:* {str(vt_data['signature_info']['signers'])} \n"
+                        if vt_data['last_analysis_stats']['malicious'] != 0:
+                            try:
+                                jira_description += f"-- *Threat Name:* {vt_data['popular_threat_classification']['suggested_threat_label']} \n"
+                            except:
+                                i = 0
+                            print(vt_data['last_analysis_stats']['malicious'])
+                            jira_description += f"-- *Number of Vendors marked as Malicious:* {vt_data['last_analysis_stats']['malicious']} \n"
+                        else:
+                            jira_description += "-- *Veredict:* Clean \n"
+                    else:
+                        print(f"Error: {response.status_code}")
+                        print(response.text)
+                        jira_description += f"The report for {fil_hash} is not present in VT\n"
+                    
+            #print(jira_description)
+            jira_description += '\nShuffle-End\n'
+            b = {}
+            #key = next((k for k, v in id_elastic.items() if id in v), None)
+            b[key] = jira_description
             jira_desc["issues"].append(b)
         return(jira_desc)
 
