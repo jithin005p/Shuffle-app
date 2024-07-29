@@ -2918,6 +2918,9 @@ class JiraAnomal(AppBase):
                 response = requests.post(f"{ELASTICSEARCH_URL}/{INDEX_NAME}/_search",headers=HEADERS,json=query)
                 if response.status_code == 200:
                     hits = response.json()["hits"]["hits"]
+                else:
+                    hits.append(id)
+                    break
             b[key] = hits
             jira_desc["issues"].append(b)
         return(jira_desc)
