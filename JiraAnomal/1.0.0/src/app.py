@@ -2919,11 +2919,11 @@ class JiraAnomal(AppBase):
                 response = requests.post(f"{ELASTICSEARCH_URL}/{INDEX_NAME}/_search",headers=HEADERS,json=query)
                 hit = str(response.status_code)
                 if response.status_code == 200:
-                    hits = response.json()["hits"]["hits"]
+                    hits = response.json()["hits"]
                 else:
                     hits.append(id)
                     break
-            b[key] = hit
+            b[key] = hits
             jira_desc["issues"].append(b)
         return(jira_desc)
 
