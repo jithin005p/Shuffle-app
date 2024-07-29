@@ -2921,7 +2921,7 @@ class JiraAnomal(AppBase):
                 else:
                     hits.append(id)
                     break
-            b[key] = hits
+            b[key] = ids
             jira_desc["issues"].append(b)
         return(jira_desc)
 
