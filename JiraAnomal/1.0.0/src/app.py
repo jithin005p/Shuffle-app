@@ -2848,6 +2848,7 @@ class JiraAnomal(AppBase):
         
         for id_elastic in issue_json:
             hits = []
+            hit = ''
             b = {}
             (key, ids), = id_elastic.items()
             for id in ids:
@@ -2916,12 +2917,13 @@ class JiraAnomal(AppBase):
                 spray_start = ''
                 INDEX_NAME = ".internal.alerts-security.alerts-default*"  # Replace with your actual index pattern for security alerts
                 response = requests.post(f"{ELASTICSEARCH_URL}/{INDEX_NAME}/_search",headers=HEADERS,json=query)
+                hit = str(response.status_code)
                 if response.status_code == 200:
                     hits = response.json()["hits"]["hits"]
                 else:
                     hits.append(id)
                     break
-            b[key] = ids
+            b[key] = hit
             jira_desc["issues"].append(b)
         return(jira_desc)
 
